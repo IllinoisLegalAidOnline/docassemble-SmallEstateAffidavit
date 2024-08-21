@@ -21,8 +21,7 @@ objects:
   - beneficiaries: ALPeopleList.using(object_type=ALIndividual, complete_attribute=['complete'], there_are_any=True)
   - beneficiaries[i].successor_beneficiary: ALIndividual
   - court_list: ALCourtLoader.using(file_name='docassemble.ILAO:data/sources/il_courts.xlsx')
-  - test_intl_address: ALAddress
-  - decedant_will: False
+
 ---
 code: |
   ilao_easy_form_title = "Small Estate Affidavit"
@@ -50,8 +49,8 @@ code: |
   set_progress(5)
   nav.set_section('section_decedant')
   decedent.name.first
-  decedent_property.address.address
-  decedent_property.address.county
+  decedent_property.address
+  decedent_property.county
   decedant_death_date
   set_progress(15)
   nav.set_section('section_spouse')
@@ -70,9 +69,9 @@ code: |
 
   set_progress(100)
   nav.set_section('section_download')
-  instructions
-  forms_assembling
-  get_docs_screen
+  #instructions
+  #forms_assembling
+  #get_docs_screen
 ---
 id: welcome
 question: |
@@ -99,26 +98,25 @@ id: decedent address
 question: |
   Where did the decedent live immediately before death?
 fields:
-  - Street address: decedent_property.address.address
+  - Street address: decedent_property.address
     address autocomplete: True
-  - Address line 2: decedent_property.address.unit
+  - Address line 2: decedent_property.unit
     required: False
-  - City: decedent_property.address.city
-  - State: decedent_property.address.state
+  - City: decedent_property.city
+  - State: decedent_property.state
     code: |
       states_list() 
-  - ZIP code: decedent_property.address.zip
+  - ZIP code: decedent_property.zip
 ---
 # TODO need to populate this judicial circuit question
 id: decedent county
 question: |
   What county did the decedent live in at the time of their death?
 fields:
-  - County: decedent_property.address.county
-  - "Judicial Circuit": judicial_circuit
-    show if:
-      code: |
-        decedant_property.address.county.upper() != "COOK"
+  - County: decedent_property.county
+  - Judicial Circuit: judicial_circuit
+    js show if: |
+      val('decedent_property.county').toLowerCase() != "cook"
 ---
 id: decedent death date
 question: |
