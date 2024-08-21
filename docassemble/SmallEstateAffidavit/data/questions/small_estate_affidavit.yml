@@ -1,0 +1,377 @@
+metadata:
+  title: Small Estate Affidavit
+  short title: SEA
+  comment:  This program helps you prepare a Small Estate Affidavit in Illinois. 
+  authors:
+    - Jim Graszer
+---
+include:
+  - docassemble.AssemblyLine:assembly_line.yml
+  - docassemble.ALToolbox:phone-number-validation.yml
+  - docassemble.ILAO:ilao-interview-framework.yml
+  - docassemble.ILAO:shared-basic-questions.yml
+---
+objects:
+  - users: ALPeopleList.using(object_type=ALIndividual, there_are_any=True)
+  - decedent: ALIndividual
+  - decedent_property: ALAddress
+  - affidavit_address: ALAddress
+  - affidavit_mailing_address: ALAddress
+  - agent: ALPeopleList.using(object_type=ALIndividual, there_are_any=True)
+  - beneficiaries: ALPeopleList.using(object_type=ALIndividual, complete_attribute=['complete'], there_are_any=True)
+  - beneficiaries[i].successor_beneficiary: ALIndividual
+  - court_list: ALCourtLoader.using(file_name='docassemble.ILAO:data/sources/il_courts.xlsx')
+  - test_intl_address: ALAddress
+  - decedant_will: False
+---
+code: |
+  ilao_easy_form_title = "Small Estate Affidavit"
+  ilao_easy_form_url = "https://www.illinoislegalaid.org/legal-information/small-estate-affidavit"
+  github_user = 'IllinoisLegalAidOnline'
+  github_repo_name = 'docassemble-SmallEstateAffidavit'
+---
+sections:
+  - review_answers: Review your answers
+---
+sections:
+  - section_intro: Introduction
+  - section_decedant: Decedant Details
+  - section_spouse: Surviving Spouse
+  - section_children: Children Information
+  - section_assets: Assets
+  - section_debts: Unpaid Expenses and Debts
+  - section_download: Download
+---
+#################### Interview order #####################
+mandatory: True
+code: |
+  nav.set_section('section_intro')
+  sees_nav_bar
+  set_progress(5)
+  nav.set_section('section_decedant')
+  decedent.name.first
+  decedent_property.address.address
+  decedent_property.address.county
+  decedant_death_date
+  set_progress(15)
+  nav.set_section('section_spouse')
+  surviving_spouse
+  if spouse_alive == True:
+    spouce.name.first
+  # TODO: kickout for if spouse has died after.
+  set_progress(30)
+  nav.set_section('section_children')
+
+  set_progress(50)
+  nav.set_section('section_assets')
+
+  set_progress(60)
+  nav.set_section('section_debts')
+
+  set_progress(100)
+  nav.set_section('section_download')
+  instructions
+  forms_assembling
+  get_docs_screen
+---
+id: welcome
+question: |
+  Small Estate Affidavit
+subquestion: |
+  Welcome to Illinois Legal Aid Online's Small Estate Affidavit program.
+
+  This program will help you create a Small Estate Affidavit. The form you prepare with this program can only be used in Illinois.
+field: sees_nav_bar
+---
+#### DECEDENT ####
+id: decedent
+question: |
+  What is the name of the decedent?
+fields:
+  - First: decedant.name.first
+  - Middle: decedant.name.middle
+    required: False
+  - Last: decedant.name.last
+  - Suffix: decedant.name.suffix
+    required: False
+---
+id: decedent address
+question: |
+  Where did the decedent live immediately before death?
+fields:
+  - Street address: decedent_property.address.address
+    address autocomplete: True
+  - Address line 2: decedent_property.address.unit
+    required: False
+  - City: decedent_property.address.city
+  - State: decedent_property.address.state
+    code: |
+      states_list() 
+  - ZIP code: decedent_property.address.zip
+---
+# TODO need to populate this judicial circuit question
+id: decedent county
+question: |
+  What county did the decedent live in at the time of their death?
+fields:
+  - County: decedent_property.address.county
+  - "Judicial Circuit": judicial_circuit
+    show if:
+      code: |
+        decedant_property.address.county.upper() != "COOK"
+---
+id: decedent death date
+question: |
+  On what date did the decedent die?
+fields:
+  - no label: decedant_death_date
+    datatype: date
+---
+id: decedant will
+question: |
+  Did ${decedant.name.full(middle='full')} leave a will? 
+fields:
+  - no label: decedent_will
+    datatype: yesnoradio
+---
+#### DECEDENT - SPOUSE ####
+id: surviving spouce
+question: |
+  Was ${decedant.name.full(middle='full')} married at the time of their death? 
+fields:
+  - no label: surviving_spouse
+    datatype: yesnoradio
+  - "Is the spouse still alive?": spouse_alive
+    show if: surviving_spouse
+---
+id: spouce
+question: |
+  Enter the spouse's name:
+fields:
+  - First: spouce.name.first
+  - Middle: spouce.name.middle
+    required: False
+  - Last: spouce.name.last
+  - Suffix: spouce.name.suffix
+    required: False
+---
+id: spouce address
+question: |
+  Where did the spouce live immediately before death?
+  Is ${spouce.name.full(middle='full')} address the same as ${decedant.name.full(middle='full')} address?
+fields:
+  - no label: same_address
+    datatype: yesnoradio
+  - Street address: decedent_property.address.address
+    address autocomplete: True
+  - Address line 2: decedent_property.address.unit
+    required: False
+  - City: decedent_property.address.city
+  - State: decedent_property.address.state
+    code: |
+      states_list() 
+  - ZIP code: decedent_property.address.zip
+---
+id: decedant assets 
+question: |
+  List of decedant assets
+fields: 
+  - Name: decedant_assets[i].name
+  - Description: decedant_assets[i].description
+  - Value: decedant_assets[i].value
+
+
+---
+id: unclaimed illinois property
+question: |
+  Are funds and/or assets held with the Illinois Treasurer's Office?
+fields:
+  - no label: unclaimed_property
+    datatype: yesnoradio
+---
+id: funeral expense check
+question: |
+  Are there any outstanding funeral expenses?
+fields:
+  - no label: funeral_expense_paid
+    datatype: yesnoradio
+---
+id: other debts check
+question: |
+  Are there any other outstanding expenses?
+fields:
+  - no label: other_debts_paid
+    datatype: yesnoradio
+---
+
+
+## Class 1
+## unpaid_funeral_expense[i]
+## unpaid_funeral_expense[i].name
+## unpaid_funeral_expense[i].address = ALAddress
+## unpaid_funeral_expense[i].amount
+
+## Class 2 surviving spouse or decedent children (next of kin)
+## surviving spouse
+## next_of_kin[]
+## next_of_kin[i].name 
+## next_of_kin[i].relationship
+## next_of_kin[i].address
+## next_of_kin[i].amount
+
+## Class 3 US debts
+## us_debts[]
+## us_debts[].department
+## us_debts[].address
+## us_debts[].amount
+
+## Class 4 Money due employees
+## employees[]
+## employees[].name
+## employees[].address
+## employees[].amount
+
+## Class 5 Money or Property in trust
+## trust_property[]
+## trust_property[].description
+## trust_property[].value
+
+## Class 6 State of IL debts
+## illinois_debt[]
+## illinois_debt[].name
+## illinois_debt[].address
+## illinois_debt[].amount
+
+## Class 7 Other
+## other_claims[i]
+## other_claims[i].name
+## other_claims[i].address = ALAddress
+## other_claims[i].description
+## other_claims[i].amount
+
+---
+#TODO IMPLIMENT AFFIDAVIT AND AGENT
+#### USER ####
+id: your name
+question: |
+  What is your name?
+fields:
+  - First: users[0].name.first
+  - Middle: users[0].name.middle
+    required: False
+  - Last: users[0].name.last
+  - Suffix: users[0].name.suffix
+    required: False
+---
+id: user address
+question: |
+  What is your address?
+fields:
+  - Street address: users[0].address.address
+    address autocomplete: True
+  - Address line 2: users[0].address.unit
+    required: False
+  - City: users[0].address.city
+  - State: users[0].address.state
+    code: |
+      states_list() 
+  - ZIP code: users[0].address.zip
+  - County: users[0].address.county
+---
+#### AGENT ####
+id: your name
+question: |
+  What is your name?
+fields:
+  - First: agent[0].name.first
+  - Middle: agent[0].name.middle
+    required: False
+  - Last: agent[0].name.last
+  - Suffix: agent[0].name.suffix
+    required: False
+---
+id: user address
+question: |
+  What is your address?
+fields:
+  - Street address: agent[0].address.address
+    address autocomplete: True
+  - Address line 2: agent[0].address.unit
+    required: False
+  - City: agent[0].address.city
+  - State: agent[0].address.state
+    code: |
+      states_list() 
+  - ZIP code: agent[0].address.zip
+  - County: agent[0].address.county
+---
+id: agent phone check
+question: |
+  Agent phone number?
+fields:
+  - no label: agent_include_phone
+    datatype: yesnoradio
+  - "Phone number": agent[0].phone_number
+    show if: agent_include_phone
+---
+#TODO ADD REVIEW EVERYTHING BEFORE DOWNLOAD
+#### DOWNLOAD FORMS ####
+id: instructions
+continue button field: instructions
+question: |
+  Small Estate Affidavit Next steps
+subquestion: |
+  Note: These instructions are not part of the Small Estate Affidavit.
+
+  1. Sign and copy the Small Estate Affidavit form
+  •	Make at least two copies of the completed affidavit. Attach a copy of the death certificate. Also attach a certified copy of the will that was filed if there is one.
+  •	Sign and notarize the affidavit. You must sign this document in front of a Notary Public. Remember that by signing the affidavit you promise to pay the decedent's debts before giving any money to anyone else.
+
+  2. Use the small estate affidavit
+  •	You can show the affidavit to any person, bank or corporation that has property of the estate. The bank, person, or corporation must give away the property the way the affidavit says. Once the property is transferred, the person who gave you the property cannot be sued.
+  •	The person or corporation that has the decedent's property must turn over the property after you give them the small estate affidavit. If they don't, you can file a civil court claim to get the property.
+  % if False:
+  •	The Illinois Secretary of State's office may require that you use their own small estate affidavit form for some vehicle transfers. You may need to copy the information from this form onto their form.
+  % endif
+---
+id: forms assembling
+continue button field: forms_assembling
+question: |
+  Almost done
+subquestion: |
+  After you click **Next**, it may take a few moments to finish making your forms.
+  
+  ###### You do not need to refresh your screen. Hang in there!
+  
+  [NEWLINE]
+---
+id: get docs screen
+event: get_docs_screen
+question: |
+  Download
+subquestion: |
+  Your form is ready. View and download your form below. Click **Make changes** to fix any mistakes.
+  
+  Read the instructions to learn what to do next.
+
+  Thank you for using ILAO Easy Forms!
+  
+  add review 
+
+  ${ al_user_bundle.download_list_html() }
+ 
+  &nbsp;
+
+  Thank you for using ILAO Easy Forms!
+under: |
+  % if not user_logged_in():
+  [${fa_icon("sign-in-alt", color="#0079d0", size="sm")} **Sign-in**](${url_of('login', next=interview_url())}) or [**create**](${url_of('register', next=interview_url())}) an ILAO Easy Form account to save your progress (optional).
+  % endif
+
+  ${ action_button_html(interview_url(i="docassemble.ILAO:feedback.yml", easy_form_interview=ilao_easy_form_url, easy_form_title=ilao_easy_form_title, easy_form_page=user_info().question_id, easy_form_variable=user_info().variable, local=False,reset=1), label=':comment: Was this program helpful?', color="#181c36", size="md", new_window=True) }
+---
+attachment:
+  - name: small_estate_affidavit
+    variable name: small_estate_affidavit[i]
+    filename: small_estate_affidavit
+    docx template file: small_estate_affidavit.docx
