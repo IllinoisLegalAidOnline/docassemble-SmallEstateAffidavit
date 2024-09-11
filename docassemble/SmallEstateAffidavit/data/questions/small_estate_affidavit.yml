@@ -12,14 +12,33 @@ include:
   - docassemble.ILAO:shared-basic-questions.yml
 ---
 objects:
-  - users: ALPeopleList.using(object_type=ALIndividual, there_are_any=True)
   - decedent: ALIndividual
   - decedent_property: ALAddress
+  - decedent_assets: DAList.using(object_type=Thing, there_are_any=True)
+  - spouse: ALIndividual
+  - spouce.address: ALAddress
+  - heirs: ALPeopleList.using(object_type=ALIndividual, complete_attribute='complete')
+  - heirs[i].address: ALAddress
+  - non_reside_children: DAList.using(object_type=ALIndividual)
+  - unpaid_funeral_expense: DAList.using(object_type=Thing)
+  - unpaid_funeral_expense[i].address: ALAddress
+  - us_debts: DAList.using(object_type=Thing)
+  - us_debts[i].address: ALAddress
+  - employees: DAList.using(object_type=Thing)
+  - employees[i].address: ALAddress
+  - trust_property: DAList.using(object_type=Thing)
+  - illinois_debts: DAList.using(object_type=Thing)
+  - illinois_debts[i].address: ALAddress
+  - other_claims: DAList.using(object_type=Thing)
+  - other_claims[i].address: ALAddress
   - affidavit_address: ALAddress
   - affidavit_mailing_address: ALAddress
-  - agent: ALPeopleList.using(object_type=ALIndividual, there_are_any=True)
-  - beneficiaries: ALPeopleList.using(object_type=ALIndividual, complete_attribute=['complete'], there_are_any=True)
-  - beneficiaries[i].successor_beneficiary: ALIndividual
+  - heirs_list: ALPeopleList.using(object_type=ALIndividual, complete_attribute='complete'))
+  - users: ALIndividual
+  - users.address: ALAddress
+  - agent: ALIndividual
+  - agent.address: ALAddress
+  - all_recipients: ALPeopleList.using(object_type=ALIndividual, complete_attribute='complete')
   - court_list: ALCourtLoader.using(file_name='docassemble.ILAO:data/sources/il_courts.xlsx')
 
 ---
@@ -34,11 +53,10 @@ sections:
 ---
 sections:
   - section_intro: Introduction
-  - section_decedant: Decedant Details
-  - section_spouse: Surviving Spouse
-  - section_children: Children Information
-  - section_assets: Assets
-  - section_debts: Unpaid Expenses and Debts
+  - section_decedent: Decedent and heirs
+  - section_estate: Estate Details
+  - section_payments: Payments from Estate
+  - section_user: About You
   - section_download: Download
 ---
 #################### Interview order #####################
@@ -46,32 +64,114 @@ mandatory: True
 code: |
   nav.set_section('section_intro')
   sees_nav_bar
+  accept_terms
+  sea_requirements
+  if illinois_death == False:
+    not_in_illinois
+  if assets_limit == False:
+    assets_exceeded_kickout
+  if decedent_will == True:
+    if will_filed == False:
+      will_filed_kickout
   set_progress(5)
-  nav.set_section('section_decedant')
+  nav.set_section('section_decedent')
   decedent.name.first
+  if decedent.relationship == "none":
+    no_relationship
+  decedent_death_date
+  # Small Estate Affidavit before 2010 has different award limits and doubled after
+  if date_difference(starting=decedent_death_date, ending=as_datetime('7/2/2010')).seconds > 0:
+    spouse_limit = 10000
+    child_limit = 5000
+  else:
+    spouse_limit = 20000
+    child_limit = 10000
   decedent_property.address
   decedent_property.county
-  decedant_death_date
-  set_progress(15)
-  nav.set_section('section_spouse')
+  if decedent_property.county == 'cook':
+    judicial_circuit = ""
+  else:
+    trial_court = court_list.matching_courts_in_county(decedent_property.county)
+    trial_court_index = trial_court[0][0]
+    judicial_circuit = court_list.as_court('court_data', trial_court_index).circuit
   surviving_spouse
-  if spouse_alive == True:
-    spouce.name.first
-  # TODO: kickout for if spouse has died after.
+
+  spouse_award = "Not applicable" # Need to move this and calculate based on date of death
+  child_only_award = "Not applicable" # Need to move this and calculate based on date of death
+  if surviving_spouse == True:
+    # spouse_award = 20000 # Need to move this and calculate based on date of death
+    # child_only_award = "Not applicable" # Need to move this and calculate based on date of death
+    if spouse_alive == True:
+      spouse.name.first
+      spouse.award = 0
+      spouse.relationship = "spouse"
+      if spouse.same_address == False:
+        spouse.address.address
+      else:
+        spouse.address = decedent_property
+  else:
+    spouse_award = "Not applicable" # Need to move this and calculate based on date of death
+    child_only_award = 10000 # Need to move this and calculate based on date of death
+  if heirs.there_are_any == True:
+    heirs.gather()
+  
+  if all_recipients.there_are_any == True:
+    all_recipients.gather()
+
+  # Calculate the awards based on if there's a spouse and number of children
+  if surviving_spouse == True:
+    spouse_award = spouse_limit + (child_limit * heirs.number_gathered())
+  else:
+    child_only_award = spouse_limit + (child_limit * heirs.number_gathered())
+
   set_progress(30)
-  nav.set_section('section_children')
-
+  nav.set_section('section_estate')
+  sos_warning = False
+  decedent_assets[0].name.text
+  for asset in decedent_assets:
+    if asset.name in ['Motor vehicle','Other property']:
+      sos_warning = True
+  unclaimed_property
+  funeral_other_debts
+  funeral_expenses
+  if funeral_debt_paid == False:
+    unpaid_funeral_expense[0].name.text
   set_progress(50)
-  nav.set_section('section_assets')
+  nav.set_section('section_payments')
+  payment_intro
+  if funeral_other_debts == False and funeral_expenses == True:
+    if us_debts_paid == True:
+      us_debts[0].name.text
+    if employee_debts_paid == True:
+      employees[0].name.text
+    if trust_property_held == True:
+      trust_property[0].name.text
+    if illinois_debt == True:
+      illinois_debts[0].name.text
+    if other_claims_owed == True:
+      other_claims[0].name.text   
+  set_progress(90)
+  nav.set_section('section_user')
+  if user_heir_check == False:
+    if user_representing_check == True:
+      users.name.first
+      users.address.address
+    else:
+      no_heir_relationship
+  else:
+    if user_spouse == True:
+      users = spouse
 
-  set_progress(60)
-  nav.set_section('section_debts')
+  if agent_check == "yes":
+    agent.name.first
+    agent.address.address
+    agent.phone_number
 
   set_progress(100)
   nav.set_section('section_download')
-  #instructions
-  #forms_assembling
-  #get_docs_screen
+  finished
+  forms_assembling
+  get_docs_screen
 ---
 id: welcome
 question: |
@@ -82,17 +182,167 @@ subquestion: |
   This program will help you create a Small Estate Affidavit. The form you prepare with this program can only be used in Illinois.
 field: sees_nav_bar
 ---
+id: terms
+question: |
+  Not advice from a lawyer
+subquestion: |
+  IMPORTANT: This program does not provide legal advice and does not take the place of
+  advice from a lawyer.
+
+  Using this program does not create an attorney-client relationship between you and
+  Illinois Legal Aid Online or its employees.
+
+  This program is different than getting advice from a lawyer. This program will only
+  help you complete the legal documents you want. By providing this form preparation
+  program Illinois Legal Aid Online is not giving you legal advice. Your use of this
+  program does not mean that Illinois Legal Aid Online will provide you with a lawyer
+  or with any individual legal help.
+
+  If you have questions or concerns about your legal problem and want legal advice you
+  should talk to a lawyer.
+
+  Get help finding [free or low-cost legal services](https://www.illinoislegalaid.org/get-legal-help)
+  in your area.
+field: accept_terms
+---
+id: sea requirements
+continue button field: sea_requirements
+question: |
+  May I Use a Small Estate Affidavit?
+subquestion: |
+  You may use a small estate affidavit only if **ALL** of the following are true:
+
+  - The total amount of personal property in the estate of the decedent (the person
+  who died) is **no more than $100,000.**
+
+  - The decedent did not own any real estate, or they owned real estate that went to
+  someone else when they died. Ownership could go to someone else through a Transfer 
+  on Death Instrument or if the real estate was owned in a [joint tenancy with the 
+  right of survivorship.](https://www.isba.org/sites/default/files/publications/pamphlets/Estate%20Planning.pdf)
+
+  - A probate court has not issued any "letters of office" for this estate. No application
+  for letters of office is pending or contemplated. (See help text at the bottom of the
+  screen for the definition of "letters of office.")
+
+  - If there is a will, it must be filed with the clerk of the probate court. To the best
+  of your knowledge, the will on file with the court is valid and is the decedent's last will.
+
+  - You are not aware of any disputes or conflicts relating to the will or to the heirs
+  of the decedent.
+
+  - There are no outstanding unpaid claims or contested claims against the decedent (other
+  than funeral expenses).
+field: sea_requirements
+---
+#### KICKOUT QUESTIONS ####
+id: no relationship kickout
+event: no_relationship
+question: |
+  Sorry
+subquestion: |
+  You can only use this program with a valid relationship to the decedent.
+buttons:
+  - Exit: exit
+  - Restart: restart
+---
+id: no heir relationship kickout
+event: no_heir_relationship
+question: |
+  Sorry
+subquestion: |
+  You can only use this program with a valid relationship to an heir of the decedent.
+buttons:
+  - Exit: exit
+  - Restart: restart
+---
+id: illinois death
+question: |
+  Did the decedent live in Illinois at the time of death? 
+fields:
+  - no label: illinois_death
+    datatype: yesnoradio
+---
+id: not in illinois kickout
+event: not_in_illinois
+question: |
+  Sorry
+subquestion: |
+  You can only use this program for a decedent located in Illinois.
+buttons:
+  - Exit: exit
+  - Restart: restart
+---
+id: assets limit
+question: |
+  Do you think the decedent total assets are less than $100,000? 
+fields:
+  - no label: assets_limit
+    datatype: yesnoradio
+---
+id: assets kickout
+event: assets_exceeded_kickout
+question: |
+  Sorry
+subquestion: |
+  You can only use this program for a decedent with under $100,000 in assets.
+buttons:
+  - Exit: exit
+  - Restart: restart
+---
+id: decedent will
+question: |
+  Did the decedent leave a will? 
+fields:
+  - no label: decedent_will
+    datatype: yesnoradio
+---
+id: will filed
+question: |
+  If decedent had a will, is it filed with the clerk of appropariate court?
+fields:
+  - no label: will_filed
+    datatype: yesnoradio
+---
+id: will filed kickout
+event: will_filed_kickout
+question: |
+  Sorry
+subquestion: |
+  The will must be filed with the court clerk beforehand.
+buttons:
+  - Exit: exit
+  - Restart: restart
+---
 #### DECEDENT ####
 id: decedent
 question: |
   What is the name of the decedent?
 fields:
-  - First: decedant.name.first
-  - Middle: decedant.name.middle
+  - First: decedent.name.first
+  - Middle: decedent.name.middle
     required: False
-  - Last: decedant.name.last
-  - Suffix: decedant.name.suffix
+  - Last: decedent.name.last
+  - Suffix: decedent.name.suffix
     required: False
+---
+id: relationship to decedant
+question: | 
+  What is your relationship to the decedent?
+fields: 
+  - Relationship: decedent.relationship
+    input type: radio
+    choices:
+    - Spouse: spouse
+    - Child: child
+    - Representing spouse/child: representative
+    - None of the above: none
+---
+id: decedent death date
+question: |
+  On what date did the decedent die?
+fields:
+  - no label: decedent_death_date
+    datatype: date
 ---
 id: decedent address
 question: |
@@ -108,229 +358,523 @@ fields:
       states_list() 
   - ZIP code: decedent_property.zip
 ---
-# TODO need to populate this judicial circuit question
 id: decedent county
 question: |
   What county did the decedent live in at the time of their death?
 fields:
   - County: decedent_property.county
-  - Judicial Circuit: judicial_circuit
-    js show if: |
-      val('decedent_property.county').toLowerCase() != "cook"
----
-id: decedent death date
-question: |
-  On what date did the decedent die?
-fields:
-  - no label: decedant_death_date
-    datatype: date
----
-id: decedant will
-question: |
-  Did ${decedant.name.full(middle='full')} leave a will? 
-fields:
-  - no label: decedent_will
-    datatype: yesnoradio
+    code:
+      court_list._load_courts()["address_county"].unique()
 ---
 #### DECEDENT - SPOUSE ####
 id: surviving spouce
 question: |
-  Was ${decedant.name.full(middle='full')} married at the time of their death? 
+  Was ${decedent.name.full()} married at the time of their death? 
 fields:
   - no label: surviving_spouse
     datatype: yesnoradio
   - "Is the spouse still alive?": spouse_alive
+    datatype: yesnoradio
     show if: surviving_spouse
 ---
-id: spouce
+id: spouce name
 question: |
   Enter the spouse's name:
 fields:
-  - First: spouce.name.first
-  - Middle: spouce.name.middle
+  - First: spouse.name.first
+  - Middle: spouse.name.middle
     required: False
-  - Last: spouce.name.last
-  - Suffix: spouce.name.suffix
+  - Last: spouse.name.last
+  - Suffix: spouse.name.suffix
     required: False
+  - "Address the same as ${decedent.name.full()} address?": spouse.same_address
+    datatype: yesnoradio
 ---
 id: spouce address
 question: |
   Where did the spouce live immediately before death?
-  Is ${spouce.name.full(middle='full')} address the same as ${decedant.name.full(middle='full')} address?
+subquestion: |
+  Provide ${spouse.name.full()} address:
 fields:
-  - no label: same_address
-    datatype: yesnoradio
-  - Street address: decedent_property.address.address
+  - Street address: spouse.address.address
     address autocomplete: True
-  - Address line 2: decedent_property.address.unit
+  - Address line 2: spouse.address.unit
     required: False
-  - City: decedent_property.address.city
-  - State: decedent_property.address.state
+  - City: spouse.address.city
+  - State: spouse.address.state
     code: |
       states_list() 
-  - ZIP code: decedent_property.address.zip
+  - ZIP code: spouse.address.zip
 ---
-id: decedant assets 
+id: any other children
 question: |
-  List of decedant assets
+  Do you have any other children to tell us about?
+subquestion: |
+  So far you have told us about ${comma_and_list(heirs.complete_elements().full_names())}.
+fields:
+  - "Anyone else?": heirs.there_is_another
+    datatype: yesnoradio
+---
+############### HEIRS BLOCK ################
+code: |
+  heirs[i].name.first
+  if heirs[i].same_address == False:
+    heirs[i].address.address
+    non_reside_children = heirs[i].name.full()
+  else:
+    heirs[i].address = decedent_property
+  heirs[i].address.address
+  heirs[i].complete = True 
+---
+#### DECEDENT CHILDREN - MINOR/ADULT ####
+id: decedent minor children
+question: |
+  Did ${decedent.name.full()} have any minor or adult dependent children at the time of their death? 
+fields:
+  - no label: heirs.there_are_any
+    datatype: yesnoradio
+  - "Are the children still alive?": heirs.still_alive
+    datatype: yesnoradio
+    show if: heirs.there_are_any
+---
+id: adding children
+sets:
+  - heirs[i].name.first
+question: |
+  What is the ${ordinal(i)} child's name?
+fields:
+  - First: heirs[i].name.first
+  - Middle: heirs[i].name.middle
+    required: False
+  - Last: heirs[i].name.last
+  - Suffix: heirs[i].name.suffix
+    required: False
+  - Relationship: heirs[i].relationship
+    input type: radio
+    choices:
+    - Child
+    - Adult Dependent Child
+  - Minor: heirs[i].child_minor
+    datatype: yesnoradio
+  - Birthdate: heirs[i].birthdate
+    datatype: BirthDate
+    show if: heirs[i].child_minor
+  - "Address the same as ${decedent.name.full()} address?": heirs[i].same_address
+    datatype: yesnoradio    
+---
+sets:
+  - heirs[i].address.address
+id: child address
+question: |
+  What is the ${heirs[i].name.full()}'s address?
+fields:
+  - Street address: heirs[i].address.address
+    address autocomplete: True
+  - Address line 2: heirs[i].address.unit
+    required: False
+  - City: heirs[i].address.city
+  - State: heirs[i].address.state
+    code: |
+      states_list() 
+  - ZIP code: heirs[i].address.zip
+---
+##### ESTATE #####
+code: |
+  asset_types = [
+    'Savings account', 'Checking account', 'CD acount',
+    'Cash','Money market acount','Motor vehicle',
+    'Collectible','Art','Other property']
+---
+id: decedent assets 
+question: |
+  Details for the ${ ordinal(i) } asset
+subquestion: |
+  List each asset (including each bank account, stock, and cash) in ${decedent.name.full()}'s estate by
+  selecting the asset from the menu. Add a description of the asset. An example is, "Account number 
+  09-2863 at First Savings Bank." Enter the current market or resale value of each asset. Do not 
+  enter "$" in your answers for value.
 fields: 
-  - Name: decedant_assets[i].name
-  - Description: decedant_assets[i].description
-  - Value: decedant_assets[i].value
-
-
+  - Name: decedent_assets[i].name.text
+    datatype: dropdown
+    code: asset_types
+  - Description: decedent_assets[i].description
+  - Value: decedent_assets[i].value
+    datatype: currency
+    min: 0
+list collect: True
+---
+question: |
+  Is there another asset?
+yesno: decedent_assets.there_is_another
 ---
 id: unclaimed illinois property
 question: |
-  Are funds and/or assets held with the Illinois Treasurer's Office?
+  Unclaimed Property
+subquestion: |
+  The Illinois Treasurer's Office might have ${decedent.name.full()} unclaimed property. By adding the following
+  text to the list of assets, it will make it easier to recover their money or assets.
+
+  **"Funds and/or assets held with the Illinois Treasurer’s Office"**
+
+  Do you want to add that text to the list of assets?
 fields:
   - no label: unclaimed_property
     datatype: yesnoradio
 ---
-id: funeral expense check
-question: |
-  Are there any outstanding funeral expenses?
-fields:
-  - no label: funeral_expense_paid
-    datatype: yesnoradio
----
 id: other debts check
 question: |
-  Are there any other outstanding expenses?
+  Have all of ${decedent.name.full()} funeral expenses and other debts been paid?
 fields:
-  - no label: other_debts_paid
+  - no label: funeral_other_debts
     datatype: yesnoradio
 ---
-
-
-## Class 1
-## unpaid_funeral_expense[i]
-## unpaid_funeral_expense[i].name
-## unpaid_funeral_expense[i].address = ALAddress
-## unpaid_funeral_expense[i].amount
-
-## Class 2 surviving spouse or decedent children (next of kin)
-## surviving spouse
-## next_of_kin[]
-## next_of_kin[i].name 
-## next_of_kin[i].relationship
-## next_of_kin[i].address
-## next_of_kin[i].amount
-
-## Class 3 US debts
-## us_debts[]
-## us_debts[].department
-## us_debts[].address
-## us_debts[].amount
-
-## Class 4 Money due employees
-## employees[]
-## employees[].name
-## employees[].address
-## employees[].amount
-
-## Class 5 Money or Property in trust
-## trust_property[]
-## trust_property[].description
-## trust_property[].value
-
-## Class 6 State of IL debts
-## illinois_debt[]
-## illinois_debt[].name
-## illinois_debt[].address
-## illinois_debt[].amount
-
-## Class 7 Other
-## other_claims[i]
-## other_claims[i].name
-## other_claims[i].address = ALAddress
-## other_claims[i].description
-## other_claims[i].amount
-
+id: funeral expense check
+question: |
+  Did ${decedent.name.full()} have funeral expenses?
+fields:
+  - no label: funeral_expenses
+    datatype: yesnoradio
+  - "Have they all been paid?": funeral_debt_paid
+    datatype: yesnoradio
+    show if: funeral_expenses
 ---
-#TODO IMPLIMENT AFFIDAVIT AND AGENT
+id: unpaid funeral expense
+question: |
+  Do you have any other funeral expense?
+fields:
+  - no label: unpaid_funeral_expense.there_is_another
+    datatype: yesnoradio
+---
+id: funeral expense owesd 
+question: |
+  Funeral and Burial expenses
+fields: 
+  - Name: unpaid_funeral_expense[i].name.text
+  - Street address: unpaid_funeral_expense[i].address.address
+    address autocomplete: True
+  - Address line 2: unpaid_funeral_expense[i].address.unit
+    required: False
+  - City: unpaid_funeral_expense[i].address.city
+  - State: unpaid_funeral_expense[i].address.state
+    code: |
+      states_list() 
+  - ZIP code: unpaid_funeral_expense[i].address.zip
+  - Amount: unpaid_funeral_expense[i].value
+    datatype: currency
+list collect: True
+---
+######## PAYMENTS FROM ESTATE ###############
+id: payments introduce
+question: |
+  Payments from Estate
+subquestion: |
+  Intro area TODO to get the rest of the instructions later.
+
+  Currently the limits are ${currency(spouse_limit)} and ${currency(child_limit)}
+field: payment_intro
+---
+id: us debts
+question: |
+  Does test test owe any debts to the United States? Income taxes are an example.
+fields:
+  - no label: us_debts_paid
+    datatype: yesnoradio
+---
+id: us debts owed
+question: |
+  Debts Due to the United States
+fields: 
+  - Name: us_debts[i].name.text
+  - Street address: us_debts[i].address.address
+    address autocomplete: True
+  - Address line 2: us_debts[i].address.unit
+    required: False
+  - City: us_debts[i].address.city
+  - State: us_debts[i].address.state
+    code: |
+      states_list() 
+  - ZIP code: us_debts[i].address.zip
+  - Amount: us_debts[i].value
+    datatype: currency
+list collect: True
+---
+id: employee debts
+question: |
+  Does ${decedent.name.full()} owe any employee $800 or less for services rendered within four 
+  months before ${decedent_death_date}, or for expenses attending the last illness?
+fields:
+  - no label: employee_debts_paid
+    datatype: yesnoradio
+---
+id: employees owed
+question: |
+  Money Due Employees
+fields: 
+  - "Employee Name": employees[i].name.text
+  - Street address: employees[i].address.address
+    address autocomplete: True
+  - Address line 2: employees[i].address.unit
+    required: False
+  - City: employees[i].address.city
+  - State: employees[i].address.state
+    code: |
+      states_list() 
+  - ZIP code: employees[i].address.zip
+  - "Amount Owed": employees[i].value
+    datatype: currency
+list collect: True
+---
+id: trust property held
+question: |
+  Did ${decedent.name.full()} hold or receive money or other property in trust which cannot 
+  be identified or traced?
+fields:
+  - no label: trust_property_held
+    datatype: yesnoradio
+---
+id: trust property
+question: |
+  Money or Property Held in Trust
+fields: 
+  - Property Description: trust_property[i].name.text
+  - Value: trust_property[i].value
+    datatype: currency
+list collect: True
+---
+id: illinois debts
+question: |
+  Does ${decedent.name.full()} owe any debts to the State of Illinois or any county, township, 
+  city, town, village, or school district located in Illinois?
+fields:
+  - no label: illinois_debt
+    datatype: yesnoradio
+---
+id: illinois owed
+question: |
+  Debts Due State of Illinois and Others
+fields: 
+  - "Agency or Department": illinois_debts[i].name.text
+  - Street address: illinois_debts[i].address.address
+    address autocomplete: True
+  - Address line 2: illinois_debts[i].address.unit
+    required: False
+  - City: illinois_debts[i].address.city
+  - State: illinois_debts[i].address.state
+    code: |
+      states_list() 
+  - ZIP code: illinois_debts[i].address.zip
+  - "Amount Owed": illinois_debts[i].value
+    datatype: currency
+list collect: True
+---
+id: other claims owed
+question: |
+  Are there any other claims against ${decedent.name.full()}'s estate?
+fields:
+  - no label: other_claims_owed
+    datatype: yesnoradio
+---
+id: other claims
+question: |
+  All Other Claims
+fields: 
+  - Name: other_claims[i].name.text
+  - Street address: other_claims[i].address.address
+    address autocomplete: True
+  - Address line 2: other_claims[i].address.unit
+    required: False
+  - City: other_claims[i].address.city
+  - State: other_claims[i].address.state
+    code: |
+      states_list() 
+  - ZIP code: other_claims[i].address.zip
+  - Description: other_claims[i].description
+  - "Amount Owed": other_claims[i].value
+    datatype: currency
+list collect: True
+---
 #### USER ####
+id: user heir
+question: |
+  Are you one of the heirs?
+fields:
+  - no label: user_heir_check
+    datatype: yesnoradio
+---
+id: user not heir
+question: |
+  If not heir, are you a representative or fiduciary of one of heirs?
+fields:
+  - no label: user_representing_check
+    datatype: yesnoradio
+---
+id: spouse user
+question: |
+  Are you ${spouse.name.full()}?
+fields:
+  - no label: user_spouse
+    datatype: yesnoradio
+---
 id: your name
 question: |
   What is your name?
 fields:
-  - First: users[0].name.first
-  - Middle: users[0].name.middle
+  - First: users.name.first
+  - Middle: users.name.middle
     required: False
-  - Last: users[0].name.last
-  - Suffix: users[0].name.suffix
+  - Last: users.name.last
+  - Suffix: users.name.suffix
     required: False
+  - Relationship: users.relationship
+    datatype: radio
+    choices:
+    - Spouse
+    - Child
+    - Agent
 ---
 id: user address
 question: |
   What is your address?
 fields:
-  - Street address: users[0].address.address
+  - Street address: users.address.address
     address autocomplete: True
-  - Address line 2: users[0].address.unit
+  - Address line 2: users.address.unit
     required: False
-  - City: users[0].address.city
-  - State: users[0].address.state
+  - City: users.address.city
+  - State: users.address.state
     code: |
       states_list() 
-  - ZIP code: users[0].address.zip
-  - County: users[0].address.county
+  - ZIP code: users.address.zip
 ---
 #### AGENT ####
-id: your name
+id: agent info
 question: |
-  What is your name?
+  Do you want to name an agent for service of process or do you want to receive service of process yourself?
 fields:
-  - First: agent[0].name.first
-  - Middle: agent[0].name.middle
+  - Agent: agent_check
+    input type: radio
+    choices:
+      - "I want to name an agent": yes
+      - "I do not want to name an agent": no
+---
+id: agent name
+question: |
+  What is the name of the agent?
+fields:
+  - First: agent.name.first
+  - Middle: agent.name.middle
     required: False
-  - Last: agent[0].name.last
-  - Suffix: agent[0].name.suffix
+  - Last: agent.name.last
+  - Suffix: agent.name.suffix
     required: False
 ---
-id: user address
+id: agent address
 question: |
-  What is your address?
+  What is address of the agent?
 fields:
-  - Street address: agent[0].address.address
+  - Street address: agent.address.address
     address autocomplete: True
-  - Address line 2: agent[0].address.unit
+  - Address line 2: agent.address.unit
     required: False
-  - City: agent[0].address.city
-  - State: agent[0].address.state
+  - City: agent.address.city
+  - State: agent.address.state
     code: |
       states_list() 
-  - ZIP code: agent[0].address.zip
-  - County: agent[0].address.county
+  - ZIP code: agent.address.zip
 ---
 id: agent phone check
 question: |
-  Agent phone number?
+  Include an agent phone number?
 fields:
   - no label: agent_include_phone
     datatype: yesnoradio
-  - "Phone number": agent[0].phone_number
+  - "Phone number": agent.phone_number
     show if: agent_include_phone
 ---
-#TODO ADD REVIEW EVERYTHING BEFORE DOWNLOAD
-#### DOWNLOAD FORMS ####
-id: instructions
-continue button field: instructions
+######### ALL RECIPIENTS #########
+code: |
+  all_recipients[i].name.first
+  all_recipients[i].address.address
+  all_recipients[i].complete = True
+---
+id: all recipeients 
 question: |
-  Small Estate Affidavit Next steps
+  Does ${decedent.name.full()} have any more heirs?
 subquestion: |
-  Note: These instructions are not part of the Small Estate Affidavit.
-
-  1. Sign and copy the Small Estate Affidavit form
-  •	Make at least two copies of the completed affidavit. Attach a copy of the death certificate. Also attach a certified copy of the will that was filed if there is one.
-  •	Sign and notarize the affidavit. You must sign this document in front of a Notary Public. Remember that by signing the affidavit you promise to pay the decedent's debts before giving any money to anyone else.
-
-  2. Use the small estate affidavit
-  •	You can show the affidavit to any person, bank or corporation that has property of the estate. The bank, person, or corporation must give away the property the way the affidavit says. Once the property is transferred, the person who gave you the property cannot be sued.
-  •	The person or corporation that has the decedent's property must turn over the property after you give them the small estate affidavit. If they don't, you can file a civil court claim to get the property.
-  % if False:
-  •	The Illinois Secretary of State's office may require that you use their own small estate affidavit form for some vehicle transfers. You may need to copy the information from this form onto their form.
-  % endif
+  So far you have told us about ${comma_and_list(heirs.complete_elements().full_names())}.
+fields:
+  - "Anyone else?": all_recipients.there_is_another
+    datatype: yesnoradio
+---
+id: all recipeients check
+question: |
+  Did ${decedent.name.full()} have any recipients to their estate?
+fields:
+  - no label: all_recipients.there_are_any
+    datatype: yesnoradio
+---
+id: adding all recipients 
+sets:
+  - all_recipients[i].name.first
+question: |
+  What is the ${ordinal(i)} heirs's name?
+fields:
+  - First: all_recipients[i].name.first
+  - Middle: all_recipients[i].name.middle
+    required: False
+  - Last: all_recipients[i].name.last
+  - Suffix: all_recipients[i].name.suffix
+    required: False
+  - Relationship: all_recipients[i].relationship
+    input type: radio
+    choices:
+    - Child
+    - Grandchild
+    - Parent 
+    - Sibling
+    - Neice
+    - Nephew
+    - Grandparent
+    - Other relationship
+  - Minor (under 18): all_recipients[i].child_minor
+    datatype: yesnoradio
+  - Birthdate: all_recipients[i].birthdate
+    datatype: BirthDate
+    required: False
+    show if: all_recipients[i].child_minor
+  - Description: all_recipients[i].description
+  - Award: all_recipients[i].award
+    datatype: currency
+---
+sets:
+  - all_recipients[i].address.address
+id: all recipients address
+question: |
+  What is the ${all_recipients[i].name.full()} heirs's address?
+fields:
+  - Street address: all_recipients[i].address.address
+    address autocomplete: True
+  - Address line 2: all_recipients[i].address.unit
+    required: False
+  - City: all_recipients[i].address.city
+  - State: all_recipients[i].address.state
+    code: |
+      states_list() 
+  - ZIP code: all_recipients[i].address.zip
+---
+#### DOWNLOAD FORMS ####
+id: forms finished
+continue button field: finished
+question: |
+  Getting the Small Estate Affidavit form ready
+subquestion: |
+  You have now completed this program. Here are the steps you need to take to create your form:
+  - If you want to make any changes to your answers or add missing information, click the __review__ you want to go to.
+  - If you have filled in all your answers and do not want to make changes, click the finshed button.
+  - When the form appears, you may print it or save it on your computer.
+  - Keep a copy of the form for your records.
+  - You must attach a copy of the death certificate to the small estate affidavit. Before you sign your name on the printed document, make sure that you have met all of the requirements for using a small estate affidavit. If you have questions about those requirements, talk to a lawyer.
+  - Learn more about [transferring property with a small estate affidavit.](https://www.illinoislegalaid.org/legal-information/transferring-property-small-estate-affidavit)
 ---
 id: forms assembling
 continue button field: forms_assembling
@@ -356,7 +900,7 @@ subquestion: |
   
   add review 
 
-  ${ al_user_bundle.download_list_html() }
+  ${ al_user_bundle.download_list_html(format='original') }
  
   &nbsp;
 
@@ -368,8 +912,15 @@ under: |
 
   ${ action_button_html(interview_url(i="docassemble.ILAO:feedback.yml", easy_form_interview=ilao_easy_form_url, easy_form_title=ilao_easy_form_title, easy_form_page=user_info().question_id, easy_form_variable=user_info().variable, local=False,reset=1), label=':comment: Was this program helpful?', color="#181c36", size="md", new_window=True) }
 ---
+objects:
+  - al_user_bundle: ALDocumentBundle.using(elements=[small_estate_affidavit], filename="completed_small_estate_affidavit.docx", title="All forms", enabled=True)
+---
 attachment:
   - name: small_estate_affidavit
     variable name: small_estate_affidavit[i]
     filename: small_estate_affidavit
     docx template file: small_estate_affidavit.docx
+---
+objects:
+  - small_estate_affidavit: ALDocument.using(title="Small Estate Affidavit", filename="small_estate_affidavit.docx", enabled=True, has_addendum=False)
+---
