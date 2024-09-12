@@ -325,7 +325,7 @@ fields:
   - Suffix: decedent.name.suffix
     required: False
 ---
-id: relationship to decedant
+id: relationship to decedent
 question: | 
   What is your relationship to the decedent?
 fields: 
@@ -913,7 +913,13 @@ under: |
   ${ action_button_html(interview_url(i="docassemble.ILAO:feedback.yml", easy_form_interview=ilao_easy_form_url, easy_form_title=ilao_easy_form_title, easy_form_page=user_info().question_id, easy_form_variable=user_info().variable, local=False,reset=1), label=':comment: Was this program helpful?', color="#181c36", size="md", new_window=True) }
 ---
 objects:
-  - al_user_bundle: ALDocumentBundle.using(elements=[small_estate_affidavit], filename="completed_small_estate_affidavit.docx", title="All forms", enabled=True)
+  - al_user_bundle: ALDocumentBundle.using(elements=[next_steps, small_estate_affidavit], filename="completed_small_estate_affidavit.docx", title="All forms", enabled=True)
+---
+attachment:
+  - name: next_steps
+    variable name: next_steps[i]
+    filename: next_steps
+    docx template file: next_steps.docx
 ---
 attachment:
   - name: small_estate_affidavit
@@ -922,5 +928,6 @@ attachment:
     docx template file: small_estate_affidavit.docx
 ---
 objects:
+  - next_steps: ALDocument.using(title="Next Steps", filename="next_steps.docx", enabled=True, has_addendum=False)
   - small_estate_affidavit: ALDocument.using(title="Small Estate Affidavit", filename="small_estate_affidavit.docx", enabled=True, has_addendum=False)
 ---
