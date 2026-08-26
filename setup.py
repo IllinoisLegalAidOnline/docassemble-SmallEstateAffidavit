@@ -44,9 +44,9 @@ def find_package_data(where='.', package='', exclude=standard_exclude, exclude_d
     return out
 
 setup(name='docassemble.SmallEstateAffidavit',
-      version='0.1.1',
+      version='0.1.2',
       description=('A docassemble extension.'),
-      long_description='# docassemble.SmallEstateAffidavit\n\nA docassemble extension.\n\n## Author\n\nVivian McNaughton, vmcnaughton@illinoislegalaid.org\n\n',
+      long_description='# docassemble.SmallEstateAffidavit\r\n\r\nA docassemble extension.\r\n\r\n## Author\r\n\r\nVivian McNaughton, vmcnaughton@illinoislegalaid.org',
       long_description_content_type='text/markdown',
       author='Vivian McNaughton',
       author_email='vmcnaughton@illinoislegalaid.org',

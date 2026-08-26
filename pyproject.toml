@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docassemble.SmallEstateAffidavit"
-version = "0.1.1"
+version = "0.1.2"
 description = "A docassemble extension."
 readme = "README.md"
 authors = [

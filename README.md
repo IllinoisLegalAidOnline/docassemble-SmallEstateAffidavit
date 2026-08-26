@@ -4,5 +4,4 @@ A docassemble extension.
 
 ## Author
 
-Jim Graszer, jim@lemmalegal.com
-
+Vivian McNaughton, vmcnaughton@illinoislegalaid.org
