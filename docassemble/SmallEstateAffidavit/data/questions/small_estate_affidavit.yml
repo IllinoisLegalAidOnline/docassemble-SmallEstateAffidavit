@@ -1,9 +1,9 @@
 metadata:
-  title: Small Estate Affidavit
-  short title: Small Estate Affidavit
-  comment:  This program helps you prepare a Small Estate Affidavit in Illinois. 
+  title: Small estate affidavit
+  short title: Small estate affidavit
+  comment: This Easy Form helps you make the forms to transfer someone's property after they die without going to probate court.
   authors:
-    - Jim Graszer
+    - Vivian McNaughton
 ---
 include:
   - docassemble.AssemblyLine:assembly_line.yml
@@ -11,176 +11,308 @@ include:
   - docassemble.ILAO:shared-basic-questions.yml
 ---
 objects:
+  - users: ALPeopleList.using(there_are_any=True, complete_attribute='complete')
   - decedent: ALIndividual
-  - decedent_property: ALAddress
-  - decedent_assets: DAList.using(object_type=Thing, there_are_any=True, complete_attribute='complete')
   - spouse: ALIndividual
-  - heirs: ALPeopleList.using(complete_attribute='complete')
-  - non_reside_children: DAList.using(object_type=ALIndividual)
-  - unpaid_funeral_expense: DAList.using(object_type=Thing, complete_attribute='complete')
-  - unpaid_funeral_expense[i].address: ALAddress
-  - us_debts: DAList.using(object_type=Thing, complete_attribute='complete')
-  - us_debts[i].address: ALAddress
-  - employees: DAList.using(object_type=Thing, complete_attribute='complete')
-  - employees[i].address: ALAddress
-  - trust_property: DAList.using(object_type=Thing, complete_attribute='complete')
-  - illinois_debts: DAList.using(object_type=Thing, complete_attribute='complete')
-  - illinois_debts[i].address: ALAddress
-  - other_claims: DAList.using(object_type=Thing, complete_attribute='complete')
-  - other_claims[i].address: ALAddress
-  - heirs_list: ALPeopleList.using(complete_attribute='complete'))
-  - users: ALIndividual
-  - users.address: ALAddress
   - agent: ALIndividual
-  - agent.address: ALAddress
-  - all_recipients: ALPeopleList.using(object_type=ALIndividual, complete_attribute='complete')
-  - court_list: ALCourtLoader.using(file_name='docassemble.ILAO:data/sources/il_courts.xlsx')
-
+  - dependents: ALPeopleList.using(there_are_any=False, complete_attribute='complete')
+  - heirs: ALPeopleList.using(there_are_any=False, complete_attribute='complete')
+  - residue_heirs: ALPeopleList.using(there_are_any=False, complete_attribute='complete')
+  - intestate_heirs: ALPeopleList.using(there_are_any=False, complete_attribute='complete')
+  - assets: DAList.using(object_type=Thing, complete_attribute='complete', there_are_any=True)
+  - trust_property: DAList.using(object_type=Thing, complete_attribute='complete', there_are_any=False)
+  - funeral_debts: DAList.using(object_type=Thing, complete_attribute='complete', there_are_any=False)
+  - us_debts: DAList.using(object_type=Thing, complete_attribute='complete', there_are_any=False)
+  - employee_debts: DAList.using(object_type=Thing, complete_attribute='complete', there_are_any=False)
+  - illinois_debts: DAList.using(object_type=Thing, complete_attribute='complete', there_are_any=False)
+  - other_debts: DAList.using(object_type=Thing, complete_attribute='complete', there_are_any=False)
 ---
 code: |
-  ilao_easy_form_title = "Small Estate Affidavit"
+  al_form_type = 'starts_case'
+  ilao_easy_form_title = "Small estate affidavit"
   ilao_easy_form_url = "https://www.illinoislegalaid.org/legal-information/small-estate-affidavit"
+  form_name = "Small estate affidavit"
   github_user = 'IllinoisLegalAidOnline'
   github_repo_name = 'docassemble-SmallEstateAffidavit'
----
-sections:
-  - review_answers: Review your answers
+  allowed_courts = ['Circuit']
 ---
 sections:
   - section_intro: Start
-  - section_decedent: Decedent and heirs
-  - section_estate: Estate details
-  - section_payments: Payments from estate
+  - section_estate: About the estate
+  - section_heirs: Heirs
+  - section_assets: Assets
+  - section_debts: Debts
   - section_user: About you
   - section_download: Download
 ---
-#################### Interview order #####################
+#interview order block
 mandatory: True
 code: |
   nav.set_section('section_intro')
   sees_nav_bar
-  set_progress(5)
-  sea_requirements
+  snapshot_start
   how_to_use
+  set_progress(5)
   accept_terms
-  set_progress(20)
-  nav.set_section('section_decedent')
-  decedent.name.first
-  if illinois_death == False:
-    not_in_illinois
-  if assets_limit == False:
-    assets_exceeded_kickout
-  if decedent_will == True:
-    if will_filed == False:
-      will_filed_kickout
-  if decedent.relationship == "none":
-    no_relationship
-  decedent_death_date
-  # Small Estate Affidavit before 2010 has different award limits and doubled after
-  if date_difference(starting=decedent_death_date, ending=as_datetime('7/2/2010')).seconds > 0:
-    spouse_limit = 10000
-    child_limit = 5000
-  else:
-    spouse_limit = 20000
-    child_limit = 10000
-  decedent_property.address
-  trial_court = list()
-  if len(decedent_property.county) > 0:
-    decedent_property.county = decedent_property.county.split(' ',1)[0]
-    trial_court = court_list.matching_courts_in_county(decedent_property.county)
-  # Bad county needs to go through manual selection
-  if len(trial_court) != 1 and 'cook' not in decedent_property.county.lower():
-    manual_county
-    decedent_property.county = manual_county
-    trial_court = court_list.matching_courts_in_county(decedent_property.county)
-  # Use located county to determine court judicial circuit
-  if decedent_property.county == 'cook':
-    judicial_circuit = ""
-  else:
-    trial_court = court_list.matching_courts_in_county(decedent_property.county)
-    trial_court_index = trial_court[0][0]
-    judicial_circuit = court_list.as_court('court_data', trial_court_index).circuit
-  surviving_spouse
-
-  spouse_award = "Not applicable" # Need to move this and calculate based on date of death
-  child_only_award = "Not applicable" # Need to move this and calculate based on date of death
-  if surviving_spouse == True:
-    # spouse_award = 20000 # Need to move this and calculate based on date of death
-    # child_only_award = "Not applicable" # Need to move this and calculate based on date of death
-    if spouse_alive == True:
-      spouse.name.first
-      spouse.award = 0
-      spouse.relationship = "spouse"
-      spouse.address.address
-  else:
-    spouse_award = "Not applicable" # Need to move this and calculate based on date of death
-    child_only_award = 10000 # Need to move this and calculate based on date of death
-  if heirs.there_are_any == True:
-    heirs.gather()
+  about_small_estate
+  about_relationships
+  why_affidavit
+  how_work
+  whats_next
+  if any_real_estate:
+    real_estate_kickout
+  if large_estate:
+    large_estate_kickout
   
-  recipients_list
-  if all_recipients.there_are_any == True:
-    all_recipients.gather()
-
-  # Calculate the awards based on if there's a spouse and number of children
-  if surviving_spouse == True:
-    spouse_award = spouse_limit + (child_limit * heirs.number_gathered())
-  else:
-    child_only_award = spouse_limit + (child_limit * heirs.number_gathered())
-
-  set_progress(40)
   nav.set_section('section_estate')
-  sos_warning = False
-  # Estate assets
-  decedent_assets.gather()
-  for asset in decedent_assets:
-    if asset.name in ['Motor vehicle','Other property']:
-      sos_warning = True
-  unclaimed_property
-  funeral_other_debts
-  unpaid_funeral_expense.gather()
-  set_progress(60)
-  nav.set_section('section_payments')
-  # Payments and debts
-  payment_intro
-  if funeral_other_debts == False:
-    us_debts.gather()
-    employees.gather()
-    trust_property.gather()
-    illinois_debts.gather()
-    other_claims.gather()
-  set_progress(80)
-  nav.set_section('section_user')
-  if user_heir_check == False:
-    if user_representing_check == True:
-      users.name.first
-      users.address.address
-      users.mailing_address.address
+  if have_a_will:
+    if not will_filed or not prompt_file:
+      not_filed_kickout
+    elif not user_is_executor:
+      not_executor_kickout
+  elif not user_is_ben:
+    if not user_is_fid:
+      not_ben_kickout
+  decedent.name.first
+  death_date
+  decedent.address.address
+  
+  nav.set_section('section_heirs')
+  if decedent.was_married:
+    spouse.name.first
+    if not spouse.still_alive:
+      spouse_passed_kickout
+    get_spouse_address(spouse, decedent)
+  if any_dependents:
+    if have_dependents_passed:
+      dependents_passed_kickout
+    dependents.gather()
+  if have_a_will:
+    if (decedent.was_married or any_dependents) and not spouse_decedent_in_will:
+      not_in_will_kickout
+    if decedent.was_married:
+      spouse.amount_received
+    if any_dependents:
+      for dependent in dependents:
+        dependent.amount_received
+    any_heirs_code
+    if any_other_heirs:
+      heirs.gather()
+    if residue_mentioned:
+      residue_heirs.gather()
     else:
-      no_heir_relationship
+      residue_intestate
+      if not decedent.is_married and not any_dependents:
+        intestate_heirs.gather()
+      elif any_other_children:
+        intestate_heirs.gather()
+      if decedent.is_married:
+        spouse_intestate_code
+      if any_dependents:
+        for dependent in dependents:
+          dependent.intestate_share
+      for person in intestate_heirs:
+        person.intestate_share
   else:
-    if user_spouse == True:
-      users = spouse
-      users.mailing_address.address
+    about_intestacy
+    if not decedent.is_married and not any_dependents:
+      who_is_intestate
+      intestate_heirs.gather()
+    elif any_other_children:
+      intestate_heirs.gather()
+    if decedent._is_married:
+      spouse_intestate_code
+    if any_dependents:
+      for dependent in dependents:
+        dependent.intestate_share
+    
+    if decedent.is_married and not any_dependents and not any_other_children:
+      spouse_gets_all
+    else:
+      if decedent.is_married:
+        spouse_gets_half
+      if any_dependents:
+        for dependent in dependent:
+          dependent.denominator
+      if any_other_children:
+        for heir in intestate_heirs:
+          heir.denominator 
+  
+    if (not decedent.is_married and not any_dependents) or any_other_children: 
+      for person in intestate_heirs:
+        person.intestate_share
 
-  if agent_check == "yes":
+  nav.set_section('section_assets')
+  assets.gather()
+  get_total
+  if carless_total > 150000:
+    large_estate_kickout
+  unclaimed_property
+
+  nav.set_section('section_debts')
+  if decedent.was_married or any_dependents:
+    about_awards
+    if decedent.was_married:
+      spouse.paid_award
+    if any_dependents:
+      for child in dependents:
+        if not child_with_spouse(child):
+          child.paid_award
+  if any_trust_property:
+    trust_property.gather()
+  if any_funeral_debts:
+    funeral_debts.gather()
+  if any_us_debts:
+    us_debts.gather()
+  if any_employee_debts:
+    employee_debts.gather()
+  if any_illinois_debts:
+    illinois_debts.gather()
+  if any_other_debts:
+    other_debts.gather()
+  if decedent.was_married and any_dependents:
+    about_awards
+    if decedent.was_married:
+      spouse.award
+    if any_dependents:
+      for dependent in dependents:
+        if not dependent.lives_with_spouse:
+          dependent.award
+  about_paying_debts
+
+  nav.set_section('section_user')
+  if have_a_will:
+    users[0].name.first
+  elif user_is_ben:
+    users[0].who
+  else:
+    users[0].rep_who
+    users[0].name.first
+  if agent_needed(users[0]):
     agent.name.first
     agent.address.address
-    agent_include_phone
+    agent.phone_number
+  if have_a_will:
+    will_text_info
+  next_steps
 
-  set_progress(100)
   nav.set_section('section_download')
-  finished
   forms_assembling
+  snapshot_forms
   get_docs_screen
+---
+#dependent gather loop
+code: |
+  dependents[i].name.first
+  dependents[i].birthdate
+  get_dependent_address(dependents[i], decedent)
+  dependents[i].complete = True
+---
+#heirs gather loop
+code: |
+  heirs[i].name.first
+  heirs[i].relationship
+  heirs[i].birthdate
+  heirs[i].address.address
+  heirs[i].amount_received
+  heirs[i].complete = True
+---
+#residue_heirs gather loop
+code: |
+  residue_heirs[i].name.first
+  residue_heirs[i].address.address
+  residue_heirs[i].share
+  residue_heirs[i].complete = True
+---
+#intestate heirs gather loop
+code: |
+  intestate_heirs[i].name.first
+  intestate_heirs[i].relationship
+  intestate_heirs[i].birthdate
+  intestate_heirs[i].address.address
+  intestate_heirs[i].complete = True
+---
+#assets gather loop
+code: |
+  assets[i].name
+  if assets[i].type == "Motor vehicle":
+    sec_state_note
+  assets[i].complete = True
+---
+# trust property gather loop
+code: |
+  trust_property[i].name
+  trust_property.complete = True
+---
+#us debts gather loop
+code: |
+  us_debts[i].amount
+  us_debts[i].complete = True
+---
+#funeral debts gather loop
+code: |
+  funeral_debts[i].amount
+  funeral_debts[i].complete = True
+---
+#employee debts gather loop
+code: |
+  employee_debts[i].amount
+  employee_debts[i].complete = True
+---
+#illinois debts gather loop
+code: |
+  illinois_debts[i].amount
+  illinois_debts[i].complete = True
+---
+#otherdebts gather loop
+code: |
+  other_debts[i].amount
+  other_debts[i].complete = True
+---
+code: |
+  stuff_to_snapshot = {
+  	'start_time': str(current_datetime().format_datetime()),
+  	'started_interview': True, 
+  	}
+
+  try:
+    stuff_to_snapshot['ip_address'] = device(ip=True)
+  except:
+    pass
+
+  stuff_to_snapshot['zip'] = showifdef('users[0].address.zip')
+
+  stuff_to_snapshot['estate_has_a_will'] = showifdef('have_a_will')
+
+  stuff_to_snapshot['downloaded_forms'] = showifdef('forms_assembling')
+  
+  try:
+    stuff_to_snapshot['session_id'] = current_context().session
+  except:
+    pass
+  
+  store_variables_snapshot(
+  	data=stuff_to_snapshot, persistent=True
+  	)
+  snapshot_interview_state = True
+---
+code: |
+  snapshot_interview_state
+  snapshot_start = True  
+---
+code: |
+  reconsider('snapshot_interview_state')
+  snapshot_forms = True
 ---
 id: welcome
 question: |
-  Small Estate Affidavit
+  Small estate affidavit
 subquestion: |
-  Welcome to Illinois Legal Aid Online's Small Estate Affidavit program.
+  Welcome to Illinois Legal Aid Online's **Small estate affidavit** Easy Form.
 
-  This program will help you create a Small Estate Affidavit. The form you prepare with this program can only be used in Illinois.
+  This program will help you make a small estate affidavit. You can use it if you want to transfer someone's personal property without going to court.
+
+  To learn more, read ILAO's guide on [**Transferring property with a small estate affidavit basics**](https://www.illinoislegalaid.org/node/31841).
 field: sees_nav_bar
 ---
 id: instructions
@@ -188,927 +320,1389 @@ continue button field: how_to_use
 question: |
   Instructions
 subquestion: |
-  To use this program you will need to know: 
+  To fill out the forms, you will need to know:
 
-  * Information about decedent ....
-  * Information about estate ...
-  * Names and addresses heirs
-  * Any expenses to be paid from estate ...
-
-  Set aside 10 to 15 minutes to finish this program. You can log in and save your work to return to later. 
- 
-  ${ collapse_template(help_example) }  
-
-  Click on **{green words}** to learn what they mean. Some questions have a question mark in a circle 
-  ${ fa_icon("question-circle", color_css="#0dcaf0" ) } that also gives help.
+  * Name, address, and the date of death of the **{decedent}**,
+  * Name and address of the decedent's spouse, if any,
+  * Names, addresses, and birthdates of the decedent's children, if any,
+  * Information about the decedent's assets, such as bank accounts, cash, and stocks, and
+  * Information about the decedent's debts.
+  
+  Set aside 15 to 30 minutes to finish this program. You can log in and save your work to continue later.
+  
+  ${ collapse_template(help_example) }
+  
+  Click on **{green words}** to learn what they mean. Some questions have a question mark in a circle ${ fa_icon("question-circle", color_css="#0dcaf0" ) } that also gives help.
+terms:
+  - decedent: |
+      The **decedent** is the person who died.
 ---
 template: help_example
 subject: |
-  **You can expand sections like this to show more information.**
-content: |  
+  **You can click sections like this to show more information.**
+content: |
   This is an example of help. Click again to hide.
 ---
-id: sea requirements
-continue button field: sea_requirements
+id: about small estate
+continue button field: about_small_estate
 question: |
-  May I Use a Small Estate Affidavit?
+  Using a small estate affidavit
 subquestion: |
-  You may use a small estate affidavit only if **ALL** of the following are true:
+  To use this program, all of the following must be true:
 
-  - The total amount of personal property in the estate of the decedent (the person
-  who died) is **no more than $100,000.**
+    * The total amount of the decedent's property is no more than $150,000, not including motor vehicles,
+    * The decedent either did not own real estate or their real estate went to someone else when they died, 
+    * There are no court claims against the estate, and
+    * A probate court has not issued any "letters of office" for this estate giving the executor authority to distribute the estate and no application for letters of office is pending,
 
-  - The decedent did not own any real estate, or they owned real estate that went to
-  someone else when they died. Ownership could go to someone else through a Transfer 
-  on Death Instrument or if the real estate was owned in a [joint tenancy with the 
-  right of survivorship.](https://www.isba.org/sites/default/files/publications/pamphlets/Estate%20Planning.pdf)
+  If there is a will:
 
-  - A probate court has not issued any "letters of office" for this estate. No application
-  for letters of office is pending or contemplated. (See help text at the bottom of the
-  screen for the definition of "letters of office.")
-
-  - If there is a will, it must be filed with the clerk of the probate court. To the best
-  of your knowledge, the will on file with the court is valid and is the decedent's last will.
-
-  - You are not aware of any disputes or conflicts relating to the will or to the heirs
-  of the decedent.
-
-  - There are no outstanding unpaid claims or contested claims against the decedent (other
-  than funeral expenses).
-field: sea_requirements
+   * It must have been filed with the clerk of the probate court,
+   * It must be, to the best of your knowledge, a valid will and the decedent's last will, 
+   * You must be the executor of the will, and
+   * There are no disputes or conflicts relating to the will or to the heirs of the decedent.
 ---
-#### KICKOUT QUESTIONS ####
-id: no relationship kickout
-event: no_relationship
+id: about relationships
+continue button field: about_relationships
 question: |
-  Sorry
+  About who can use this program
 subquestion: |
-  You can only use this program with a valid relationship to ${decedent.name_full()}.
-buttons:
-  - Exit: exit
-  - Restart: restart
+  To use this program, you must have a connection to the decedent's estate.
+
+  If the decedent had a will, you can only use this program if you are the will's executor. An executor is the person in charge of giving out the property left in the will. Wills usually name the executor. If the will does not name an executor, a probate court will pick someone to handle the estate. To learn more, read ILAO's [**Probate FAQ**](https://www.illinoislegalaid.org/node/189971).
+
+  If there is not a will, you must either be a beneficiary of the decedent, a **{representative}** of a beneficiary, or a **{fiduciary}** of the beneficiary. A beneficiary is someone who will inherit from the decedent. When there is no will, beneficiaries are usually the decedent's spouse, children, or other closest relatives. If any of the beneficiaries died after the decedent died, you can not use this program and may need a lawyer to help you with the estate. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
+terms:
+  - representative: |
+      A **representative** is a person who is legally appointed to act for someone else.
+  - fiduciary: |
+     A **fiduciary** is a person who manages someone else's money or property.
 ---
-id: no heir relationship kickout
-event: no_heir_relationship
+id: why affidavit
+continue button field: why_affidavit
 question: |
-  Sorry
+  Reasons for making a small estate affidavit
 subquestion: |
-  You can only use this program with a valid relationship to an heir of ${decedent.name_full()}.
-buttons:
-  - Exit: exit
-  - Restart: restart
+  When someone dies, their property needs to be given to their heirs. However, their property is usually not all in one place: it is in bank accounts, their home, safety deposit boxes, or other places. Getting the decedent's property to their heirs can be complicated, and sometimes people have to go to probate court to sort out the estate. 
+
+  A small estate affidavit is a legal document that lets you manage an estate without going to probate court. It will list the property in the estate and say how it should be distributed. An executor or a beneficiary can use a small estate affidavit to tell banks, corporations, or anyone else with the decedent's property who should get the property.
 ---
-id: illinois death
+id: how affidavits work
+continue button field: how_work
 question: |
-  Did ${decedent.name_full()} live in Illinois at the time of death? 
+  How small estate affidavits work
+subquestion: |
+  A small estate affidavit allows you to settle an estate without going to probate court. This means that it has to list all the money and assets in the estate, all the debts the estate owes, and everyone who will inherit part of the estate. If there is a will, the affidavit has to follow the will.
+
+  First, the estate will need to pay any funeral or burial costs. Then, the estate will need to pay awards to the decedent's spouse and dependent children, if there are any. After that, the estate will need to pay its other debts.
+
+  Once all the debts are paid, the rest of the estate will go its heirs. If there is a will, the heirs will be named in the will. If there is not a will, the estate will go to the decedent's closest family.
+---
+id: whats next
+continue button field: whats_next
+question: |
+  After you finish this program
+subquestion: |
+  Once you download your small estate affidavit, you will need to attach the decedent's death certificate and sign the document in front of a notary. To learn more about notaries, read ILAO's article, [**What is a notary?**](https://www.illinoislegalaid.org/node/176196)
+
+  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has the decedent's property. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, read ILAO's guide to [**using a small estate affidaivt](https://www.illinoislegalaid.org/node/31836).
+
+  For cars and some other vehicles, you may need to use the [**Illinois Secretary of State's small estate affidavit form**](https://www.ilsos.gov/content/dam/publications/pdf_publications/rtopr31.pdf).
+
+  **Warning:** If you use a small estate affidavit incorrectly, you may be personally liable for any losses you cause. This menas you could be sued if you forget to include an heir, if you don't list all the estate's property in the affidavit, or if you don't pay one of the estate's debts. You should only use a small estate affidavit if you have the legal right to do so, and you should make sure that all information in the small estate affidavit is correct.
+---
+id: any real estate
+question: |
+  Does the decedent's estate have any real property?
+subquestion: |
+  "Real property" means land or buildings, like a house or an apartment.
+
+  If the decedent did not own real property, click **No**.
+
+  Real property can go to someone else without going to court if it was owned in a joint tenancy, held in a living trust, or tranferred with a Transfer on Death Instrument. If the decedent's real property has already gone to someone else, click **No**.
 fields:
-  - no label: illinois_death
+  - no label: any_real_estate
     datatype: yesnoradio
 ---
-id: not in illinois kickout
-event: not_in_illinois
+id: large estate
 question: |
-  Sorry
+  Is the decedent's estate more than $150,000, not including motor vehicles?
 subquestion: |
-  You can only use this program if ${decedent.name_full()} lived in Illinois.
-buttons:
-  - Exit: exit
-  - Restart: restart
----
-id: assets limit
-question: |
-  Do you think ${decedent.name_full()}'s total assets are less than $100,000? 
+  Motor vehicles are vehicles you need a driver's license to use. They need to be reigstered with the Illinois Secretary of State. 
+
+  Cars, motorcycles, and trucks are all motor vehicles. You do not need to consider their value for this question.
+
+  Bicyles, wheelchairs, and low-speed e-bikes are not motor vehicles. You should consider their value for this question.
 fields:
-  - no label: assets_limit
+  - no label: large_estate
     datatype: yesnoradio
 ---
-id: assets kickout
-event: assets_exceeded_kickout
+id: real estate kickout
+event: real_estate_kickout
 question: |
   Sorry
 subquestion: |
-  You can only use this program if ${decedent.name_full()}'s estate is under $100,000 in assets.
+  You cannot use this program for an estate that includes real property.
+
+  If the decedent made a Transfer on Death Instrument, their real property may be transferred without going to court. To learn more, read ILAO's [**Transfer on Death Instrument FAQ**](https://www.illinoislegalaid.org/node/185961).
+
+  If the decedent shared the real property with someone else, they may have been joint tenants. If they had a joint tenancy, the other joint tenants automatically inherited the decedent's share of the propery and you can still use this program. To learn more, read ILAO's [**sharing property ownership FAQ](https://www.illinoislegalaid.org/node/187846).
+
+  Click **Back** if you made a mistake, or you can talk with a lawyer to discuss your options. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area.
 buttons:
   - Exit: exit
   - Restart: restart
 ---
-id: decedent will
+id: large estate kickout
+event: large_estate_kickout
 question: |
-  Did ${decedent.name_full()} leave a will? 
+  Sorry
+subquestion: |
+  You cannot use this program for an estate larger than $150,000.
+
+  Click **Back** if you made a mistake, or you can talk with a lawyer to discuss your options. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area.
+buttons:
+  - Exit: exit
+  - Restart: restart
+---
+id: decedent name
+question: |
+  What is the name of the person who died?
+subquestion: |
+  This person is called the deceased or the decedent.
 fields:
-  - no label: decedent_will
+  - code: |
+     decedent.name_fields()
+---
+id: decedent death date
+question: |
+  When did ${decedent.name_full()} die?
+fields:
+  - Date of death: death_date
+    datatype: date
+    max: ${ today().format("yyyy-MM-dd") }
+---
+id: have a will
+question: |
+  Did the person who died leave a will?
+subquestion: |
+  If you click **yes**, you must attach a certified copy of the will to the small estate affidavit.
+fields:
+  - no label: have_a_will
     datatype: yesnoradio
 ---
 id: will filed
 question: |
-  If ${decedent.name_full()} had a will, is it filed with the clerk of appropariate court?
+  Has the will been filed with the court clerk of the county where the decedent lived?
+subquestion: |
+  If you click **Yes**, the small estate affidavit will include the following statement:
+
+  "The decedent left a will, which has been filed with the clerk of an appropriate court. A certified copy of the will on file is attached. To the best of my knowledge and belief the will on file is the decedent's last will and was signed by the decedent and the attesting witnesses as required by law and would be admittable to probate. The names and places of residence of the legatees and the portion of the estate, if any, to which each legatee is entitled are as follows . . ." 
+
+  If you are not sure if the information contained in the above paragraph is true, you may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
 fields:
   - no label: will_filed
     datatype: yesnoradio
+  - Was the will filed within 30 days of the decedent's death?: prompt_file
+    datatype: yesnoradio
+    show if: will_filed
 ---
-id: will filed kickout
-event: will_filed_kickout
+id: not filed kickout
+event: not_filed_kickout
 question: |
   Sorry
 subquestion: |
-  The will for ${decedent.name_full()} must first be filed with the court clerk beforehand.
+  % if not will_filed:
+  You cannot use this program if the decedent's will was not filed with the court clerk. If it has been less than 30 days since their death, you can file the will with the court clerk of the county and then use this program.
+  % else:
+  You cannot use this program if the decedent's will was not filed with the court clerk within 30 days of their death  
+  % endif
+
+  Click **Back** if you made a mistake, or you can talk with a lawyer to discuss your options. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area.
 buttons:
   - Exit: exit
   - Restart: restart
 ---
-#### DECEDENT ####
-id: decedent name
-sets:
-  - decedent.name.first
-  - decedent.name.last
-  - decedent.name.middle
-  - decedent.name.suffix
+id: user is executor
 question: |
-  What is the name of the decedent?
-fields:
-  - code: |
-      decedent.name_fields()
----
-id: relationship to decedent
-question: | 
-  What is your relationship to ${decedent.name_full()}?
-fields: 
-  - Relationship: decedent.relationship
-    input type: radio
-    choices:
-    - Spouse: spouse
-    - Child: child
-    - Representing spouse/child: representative
-    - None of the above: none
----
-id: decedent death date
-question: |
-  On what date did ${decedent.name_full()} die?
-fields:
-  - Date of death: decedent_death_date
-    datatype: BirthDate
----
-id: decedent address
-question: |
-  Where did ${decedent.name_full()} live immediately before death?
-fields:
-  - Street address: decedent_property.address
-    address autocomplete: True
-  - Address line 2: decedent_property.unit
-    required: False
-  - City: decedent_property.city
-  - State: decedent_property.state
-    code: |
-      states_list()  
-    default: IL
-  - ZIP code: decedent_property.zip
-  - County: decedent_property.county
-    required: False
----
-id: decedent county
-question: |
-  Problem with the address county:
+  Are you the executor of the will?
 subquestion: |
-  Address lookup couldn't determine county. Select which county ${decedent.name_full()} lived 
-  when they died:
+  The executor is the person in charge of giving out the property left in a will. The will should name its executor.
+
+  If the will says you are in charge of handling the decedent's property, click **Yes**. If it says someone else is in charge, click **No**.
 fields:
-  - County: manual_county
-    code:
-      court_list._load_courts()["address_county"].unique()
+  - no label: user_is_executor
+    datatype: yesnoradio
 ---
-#### DECEDENT - SPOUSE ####
-id: surviving spouse
+id: not executor kickout
+event: not_executor_kickout
 question: |
-  Was ${decedent.name_full()} married at the time of their death?
+  Sorry
+subquestion: |
+  You cannot use this program if there is a will and you are not the executor.
+
+  Click **Back** if you made a mistake, or you can talk with a lawyer to discuss your options. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area.
+buttons:
+  - Exit: exit
+  - Restart: restart
+---
+id: user is beneficiary
+question: |
+  Are you a beneficiary of the decedent's estate?
+subquestion: |
+  A beneficiary is someone who gets property or money from someone when they die.
+
+  Since there is not a will, the decedent's closest family members will be their beneficiaries.
+
+  ${collapse_template(family_bens_help)}
+
+  If you are among the decedent's closest family members, click **Yes**.
 fields:
-  - no label: surviving_spouse
+  - no label: user_is_ben
     datatype: yesnoradio
-  - "Is the spouse still alive?": spouse_alive
+---
+template: family_bens_help
+subject: |
+  **About which family members are closest**
+content: |
+  The decedent's closest family members will be their beneficiaries. If the decedent had a spouse or children, they will be the beneficiaries. If one of their children had children of their own and then died, those grandchildren will also be beneficiaries.
+
+  If the decedent did not have a spouse or children, their parents and siblings will be beneficiaries. If one of their siblings had children and then died, those children will also be beneficiaries.
+
+  If the decedent has no siblings and their parents are dead, their grandparents or their grandparents' descendents will be their beneficiaries.
+---
+id: user is fiduciary 
+question: |
+  Are you a representative or fiduciary of one of the decedent's beneficiaries?
+subquestion: |
+     A representative is a person who is legally appointed to act for someone else. They could be a legal guardian or someone with power of attorney.
+
+     A fiduciary is a person who manages someone else's money or property. They could be a money manager, an accountant, or a trustee.
+
+fields:
+  - no label: user_is_fid
     datatype: yesnoradio
-    show if: surviving_spouse
+---
+id: not beneficiary kickout
+event: not_ben_kickout
+question: |
+  Sorry
+subquestion: |
+  You can only use this program if you are one of the decedent's beneficiaries or representing a beneficiary.
+
+  Click **Back** if you made a mistake, or you can talk with a lawyer to discuss your options. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area.
+buttons:
+  - Exit: exit
+  - Restart: restart
+---
+id: decedent was married
+question: |
+  Was ${decedent.name_full()} married when they died?
+subquestion: |
+  If ${decedent.name_full()} was divorced or their spouse had died before  ${decedent.name_full()} died, you can click **No**.
+
+  If ${decedent.name_full()} and their spouse were separated but not divorced when ${decedent.name_full()} died, click **Yes**.
+fields:
+  - no label: decedent.was_married
+    datatype: yesnoradio
 ---
 id: spouse name
-sets:
-  - spouse.name.first
-  - spouse.name.last
-  - spouse.name.middle
-  - spouse.name.suffix
 question: |
-  Provide ${decedent.name_full()} spouse's name:
-fields:
-  - code: |
-      spouse.name_fields()
----
-id: spouse address
-question: |
-  Provide ${spouse.name_full()} address:
-fields:
-  - Same address as ${decedent.name_full()}?: spouse.address
-    datatype: object_radio
-    choices:
-      - decedent_property
-    object labeler: |
-      lambda y: y.on_one_line()
-    none of the above: |
-      Somewhere else
-    disable others: True
-    show if:
-      code: |
-        defined("decedent_property")
-    default: |
-      decedent_property
-  - Street address: spouse.address.address
-    address autocomplete: True
-  - Address line 2: spouse.address.unit
-    required: False
-  - City: spouse.address.city
-  - State: spouse.address.state
-    code: |
-      states_list() 
-  - ZIP code: spouse.address.zip
----
-id: any other children
-question: |
-  Do you have any other children to tell us about?
+  What is the name of ${decedent.name_full()}'s spouse?
 subquestion: |
-  So far you have told us about ${comma_and_list(heirs.complete_elements().full_names())}.
-fields:
-  - "Anyone else?": heirs.there_is_another
-    datatype: yesnoradio
----
-############### HEIRS BLOCK ################
-code: |
-  non_reside_children.clear()
-  heirs[i].name.first
-  heirs[i].address.address
-  if heirs[i].address != decedent_property:
-    non_reside_children.append(heirs[i])
-  heirs[i].address.address
-  heirs[i].award = 0
-  heirs[i].complete = True 
-  non_reside_children.gathered = True
----
-#### DECEDENT CHILDREN - MINOR/ADULT ####
-id: decedent minor children
-question: |
-  Did ${decedent.name_full()} have any minor or adult dependent children at the time of their death? 
-fields:
-  - no label: heirs.there_are_any
-    datatype: yesnoradio
-  - "Are the children still alive?": heirs.still_alive
-    datatype: yesnoradio
-    show if: heirs.there_are_any
----
-id: adding children
-sets:
-  - heirs[i].name.first
-  - heirs[i].name.last
-  - heirs[i].name.middle
-  - heirs[i].name.suffix
-question: |
-  What ${decedent.name_full()}'s ${ordinal(i)} child's name?
+  % if will_filed or user_is_ben:
+  If this if you, please fill this out with your name. There will be more questions about you at the end of the interview.
+  % endif
 fields:
   - code: |
-      heirs[i].name_fields()    
-  - Relationship: heirs[i].relationship
-    input type: radio
-    choices:
-    - Child
-    - Adult Dependent Child
-  - Minor: heirs[i].child_minor
+     spouse.name_fields()
+---
+id: spouse still alive
+question: |
+  Is ${spouse.name_full()} alive?
+subquestion: |
+  You can use this prgoram if ${spouse.name_full()} is alive.
+
+  Earlier, you said that ${decedent.name_full()} was married when they died. If ${spouse.name_full()} died before ${decedent.name_full()} died, you should click the **Heirs** or **:edit: Edit answers** button to change your answer to say that ${decedent.name_full()} was not married. 
+fields:
+  - no label: spouse.still_alive
     datatype: yesnoradio
-    show if:
-      variable: heirs[i].relationship
-      is: Child
+---
+id: spouse passed kickout
+event: spouse_passed_kickout
+question: |
+  Sorry
+subquestion: |
+  You cannot use this program if ${decedent.name_full()}'s spouse died after they did.
+
+  Click **Back** if you made a mistake, or you can talk with a lawyer to discuss your options. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area.
+buttons:
+  - Exit: exit
+  - Restart: restart
+---
+code: |
+  def get_spouse_address(person, decedent):
+    if person.lives_with_decedent:
+      person.address = decedent.address.copy_deep(person.attr_name('address'))
+    else:
+      person.address.address
+    return person.address
+---
+generic object: ALIndividual
+id: x lives with decedent
+question: |
+  Did ${x.name_full()} live with ${decedent.name_full()}?
+subquestion: |
+  If ${x.name_full()} was living at ${decedent.address.on_one_line(bare=True)} on ${death_date}, click **Yes**.
+fields:
+  - no label: x.lives_with_decedent
+    datatype: yesnoradio
+---
+generic object: ALIndividual
+id: x address
+question: |
+  What is ${x.name._full()}'s address?
+fields:
+  - Street address: x.address.address
+    address autocomplete: True
+  - Address line 2: x.address.unit
+    required: False
+  - City: x.address.city
+  - State: x.address.state
+    code: |
+      states_list()
+    default: IL
+  - ZIP code: x.address.zip
+---
+id: any dependents
+question: |
+  Did ${decedent.name_full()} have any minor children or adult dependent children?
+subquestion: |
+  A minor child is a child younger than 18 years old. If ${decedent.name_full()} has a child who was under 18 when they died, you should click **Yes** even if the child has since turned 18.
+
+  An adult dependent is someone 18 or older who has a disability and cannot take care of themself. If ${decedent.name_full()} had a child who was 18 or older and was dependent on them for care when they died, you should click **Yes** even if the child is no dependent on a caregiver.
+
+  If all of ${decedent.name_full()}'s children were adults who could take care of themselves when ${decedent.name_full()} died, click **No**.
+fields:
+  - no label: any_dependents
+    datatype: yesnoradio 
+---
+id: have dependents passed
+question: |
+  Have any of ${decedent.name_full()}'s dependent children died since ${decedent.name_full()}'s death?
+fields:
+  - no label: have_dependents_passed
+    datatype: yesnoradio
+---
+id: dependents passed kickout
+event: dependents_passed_kickout
+question: |
+  Sorry
+subquestion: |
+  You cannot use this program if ${decedent.name_full()}'s dependents died after they did.
+
+  Click **Back** if you made a mistake, or you can talk with a lawyer to discuss your options. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area.
+buttons:
+  - Exit: exit
+  - Restart: restart
+---
+id: dependent name
+question: |
+  What is the name of ${decedent.name_full()}'s ${ordinal(i)} dependent child?
+subquestion: |
+  % if i == 0 and (will_filed or user_is_ben):
+  If this if you, please fill this out with your name. There will be more questions about you at the end of the interview.
+  % endif
+fields:
+  code: |
+    dependents[i].name_fields()
+---
+id: dependent birthdate
+question: |
+  When was ${dependents[i].name_full()} born?
+fields:
+  - Birthdate: dependents[i].birthdate
+    datatype: BirthDate
+    alMax: ${ today().format("yyyy-MM-dd") }
+---
+code: |
+  def get_dependent_address(person, decedent):
+      if person.lives_with_decedent:
+        person.address = decedent.address.copy_deep(person.attr_name('address'))
+      elif decedent.was_married and not spouse.lives_with_decedent:
+        if person.lives_with_spouse:
+           person.address = spouse.address.copy_deep(person.attr_name('address'))
+        else:
+          person.address.address
+      else:
+        person.address.address
+      return person.address
+---
+code: |
+  def child_with_spouse(person):
+    if decedent.was_married:
+      if person.lives_with_decedent and spouse.lives_with_decedent:
+        return True
+      elif not person.lives_with_decedent and person.lives_with_spouse:
+        return True
+    return False
+---
+id: dependent lives with spouse
+question: |
+  Was ${dependents[i].name_full()} living with ${spouse.name_full()} when ${decedent.name_full()} died?
+subquestion: |
+  If ${dependents[i].name_full()} was living at ${spouse.address.on_one_line(bare=True)} on ${death_date}, click **Yes**.
+fields:
+  - no label: dependents[i].lives_with_spouse
+    datatype: yesnoradio
+---
+id: spouse decedent in will
+question: |
+  % if decedent.was_married and any_dependents:
+  Are ${comma_and_list(spouse, dependents)} named in the will?
+  % elif decedent.was_married:
+  Is ${spouse.name_full()} named in the will?
+  % elif dependents.number_gathered() == 1:
+  Is ${dependents[0].name_full()} named in the will?
+  % else:
+  Are ${dependents.full_names()} named in the will?
+  % endif
+fields:
+  - no label: spouse_decedent_in_will
+    datatype: yesnoradio
+---
+id: not in will kickout
+event: not_in_will_kickout
+question: |
+  Sorry
+subquestion: |
+  You cannot use this program if ${decedent.name_full()}'s spouse or dependents were not named in their will.
+
+  Click **Back** if you made a mistake, or you can talk with a lawyer to discuss your options. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area.
+buttons:
+  - Exit: exit
+  - Restart: restart
+---
+code: |
+  if decedent.was_married or any_dependents:
+    any_other_heirs
+  else:
+    any_other_heirs = True
+  any_heirs_code = True
+---
+id: any other heirs
+question: |
+  Did ${decedent.name_full()} name anyone else in their will?
+subquestion: |
+  When a will says that a person will inherit something from the estate, that person is called an "heir."
+fields:
+  - no label: any_other_heirs
+    datatype: yesnoradio
+---
+id: heir name
+question: |
+  % if decedent.was_married or any_dependents:
+  What is the ${ordinal(i)} other heir's name?
+  % else:
+  What is the ${ordinal(i)} heir's name?
+  % endif
+subquestion: |
+  An heir is someone who gets something in a will.
+
+  % if i == 0 and (will_filed or user_is_ben):
+  If this if you, please fill this out with your name. There will be more questions about you at the end of the interview.
+  % endif
+
+  % if decedent.was_married and any_dependents:
+  So far you have told us about ${comma_and_list(spouse, dependents, heirs)}.
+  % elif decedent.was_married: 
+  So far you have told us about ${comma_and_list(spouse, heirs)}.
+  % elif any_dependents:
+  So far you have told us about ${comma_and_list(dependents, heirs)}.
+  %elif i != 0:
+  So far you have told us about ${heirs.full_names()}.
+  % endif
+
+fields:
+  code: |
+    heirs[i].name_fields()
+---
+id: heir relationship
+question: |
+  What is ${heirs[i].name_full()}'s relationship to ${decedent.name_full()}?
+fields:
+  - Relationship: heirs[i].relationship
+    input type: dropdown
+    choices:
+      - Child
+      - Grandchild
+      - Parent
+      - Grandparent
+      - Sibling
+      - Niece
+      - Nephew
+      - Other
+  - ${heirs[i].name_full()} is ${decedent.name_full()}'s...: heirs[i].other_relationship
+    maxlength: 30
+    show if: heirs[i].relationship == "Other"
+---
+id: heir birthdate
+question: |
+  When was ${heirs[i].name_full()} born?
+fields:
   - Birthdate: heirs[i].birthdate
     datatype: BirthDate
     alMax: ${ today().format("yyyy-MM-dd") }
-    show if: heirs[i].child_minor
-validation code: |
-  if showifdef("heirs[i].birthdate") and heirs[i].age_in_years() > 18:
-    validation_error("Minor child must be under 18")
 ---
-sets:
-  - heirs[i].address.address
-id: child address
+id: heirs there is another
 question: |
-  What is the ${heirs[i].name_full()}'s address?
-fields:
-  - Same address as ${decedent.name_full()}?: heirs[i].address
-    datatype: object_radio
-    choices:
-      - decedent_property
-    object labeler: |
-      lambda y: y.on_one_line()
-    none of the above: |
-      Somewhere else
-    disable others: True
-    show if:
-      code: |
-        defined("decedent_property")
-    default: |
-      decedent_property
-  - Street address: heirs[i].address.address
-    address autocomplete: True
-  - Address line 2: heirs[i].address.unit
-    required: False
-  - City: heirs[i].address.city
-  - State: heirs[i].address.state
-    code: |
-      states_list() 
-  - ZIP code: heirs[i].address.zip
----
-##### ESTATE #####
-id: additional assets
-question: |
-  ${decedent.name_full()}'s Estate:
+  Did ${decedent.name_full()} name anyone else in their will?
 subquestion: |
-  Below are the assets that have been entered so far.
-
-  ***Note: Total assets cannot exceed $100,000.***
-  ${ decedent_assets.table.show(editable=True) }
-
-  % if sum(y.value for y in decedent_assets) <= 100000:
-  <span style="color:black">Total of all assets in estate:
-  % else:
-  <span style="color:red">Total assets exceeds limit: 
+  % if decedent.was_married and any_dependents:
+  So far you have told us about ${comma_and_list(spouse, dependents, heirs)}.
+  % elif decedent.was_married: 
+  So far you have told us about ${comma_and_list(spouse, heirs)}.
+  % elif any_dependents:
+  So far you have told us about ${comma_and_list(dependents, heirs)}.
+  %elif i != 0:
+  So far you have told us about ${heirs.full_names()}.
   % endif
-  ${currency(sum(y.value for y in decedent_assets))}</span>
 fields:
-  - "Add another asset?": decedent_assets.there_is_another
+  - no label: heirs.there_is_another
     datatype: yesnoradio
 ---
-code: |
-  decedent_assets[i].name.text
-  decedent_assets[i].complete = True 
----
-code: |
-  asset_types = [
-    'Savings account', 'Checking account', 'CD acount',
-    'Cash','Money market acount','Motor vehicle',
-    'Collectible','Art','Other property']
----
-id: decedent assets 
+generic object: ALIndividual
+id: x amount received
 question: |
-  Details for the ${ ordinal(i) } asset
+  How much does ${x.name_full()} inherit under the will?
 subquestion: |
-  List each asset (including each bank account, stock, and cash) in ${decedent.name_full()}'s estate by
-  selecting the asset from the menu. Add a description of the asset. An example is, "Account number 
-  09-2863 at First Savings Bank." Enter the current market or resale value of each asset. Do not 
-  enter "$" in your answers for value.
-fields: 
-  - Name: decedent_assets[i].name.text
-    datatype: dropdown
-    code: asset_types
-  - Description: decedent_assets[i].description
-  - Value: decedent_assets[i].value
+  Some of ${x.name_full()}'s inheritance may be **{non-liquid assets}**, such as shared ownership of a house or physical items like jewelry or electronics. You should include the **{fair market value}** of those assets in this total.
+fields:
+  - Amount: heirs[i].amount_received
     datatype: currency
-    min: 0
+terms:
+  - non- liquid assets: |
+      Assets are anything a person owns that has financial value. Liquid assets include cash, bank accounts, and stocks. **Non-liquid assets** are assets that have to be sold to get their value, such as houses, cars, or jewelry.
+  - fair market value: |
+      The price that a normal buyer would pay.
 ---
-id: unclaimed illinois property
+id: any residue
 question: |
-  Unclaimed Property
+  Does the will say who get the estate's residue?
 subquestion: |
-  The Illinois Treasurer's Office might have ${decedent.name_full()} unclaimed property. By adding the following
-  text to the list of assets, it will make it easier to recover their money or assets.
+  **Residue** is anything left in the estate after debts are paid and inheritances are given away.
+fields:
+  - no label: residue_mentioned
+    datatype: yesnoradio
+---
+id: residue intestate
+continue button field: residue_intestate
+question: |
+  Giving residue to family
+subquestion: |
+  Since the will did not say who will get the residue, ${decedent.name_full()}'s closest family members will inherit it.
 
-  **"Funds and/or assets held with the Illinois Treasurer’s Office"**
+  There are laws that say who counts as someone's closest family members and what share of the residue they get. For more information about estate planning without a will, read ILAO's [**wills estate planning FAQ**](https://www.illinoislegalaid.org/legal-information/wills-estate-planning#whathappensifidiewithoutawill).
 
-  Do you want to add that text to the list of assets?
+  Intestacy can be complicated. This program will explain how it works, but you may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
+
+  % if decedent.is_married and any_dependents: 
+  Since ${decedent.name_full()} was married, their spouse and children will inherit the residue. If ${decedent.name_full()} has any children who died after having children of their own, those grandchildren will inherit that share.
+  % elif decedent.is_married:
+  Since ${decedent.name_full()} was married, their spouse and any children of ${decedent.name_full()} will inherit the residue. If ${decedent.name_full()} has any children who died after having children of their own, those grandchildren will inherit that share.
+  % elif any_dependents:
+  Since ${decedent.name_full()} was married, their children will inherit the residue. If ${decedent.name_full()} has any children who died after having children of their own, those grandchildren will inherit that share.
+  % endif
+---
+id: residue heir name
+question: |
+  Who is the ${ordinal(i)} person who will inherit some of the residue?
+subquestion: |
+  % if i == 0 and (will_filed or user_is_ben):
+  If this if you, please fill this out with your name. There will be more questions about you at the end of the interview.
+  % endif
+fields:
+  code: |
+    residue_heirs[i].name_fields()
+---
+id: residue heir share
+question: |
+  What is ${residue_heirs[i].name_full()}'s share of the residue?
+subquestion: |
+  Share: [FIELD residue_heirs[i].numerator]/[FIELD residue_heirs[i].denominator]
+fields:
+  - no label: residue_heirs[i].numerator
+    datatype: integer
+  - no label: residue_heirs[i].denominator
+    datatype: integer
+---
+id: about intestacy
+continue button field: about_intestacy
+question: |
+  Settling an estate without a will
+subquestion: |
+  Since ${decedent.name_full()} did not have a will, their closest family members will inherit their estate. This is called "intestacy." There are laws that say who counts as someone's closest family members and what share of the estate they get. For more information about estate planning without a will, read ILAO's [**wills estate planning FAQ**](https://www.illinoislegalaid.org/legal-information/wills-estate-planning#whathappensifidiewithoutawill).
+
+  Intestacy can be complicated. This program will explain how it works, but you may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
+
+  % if decedent.is_married and any_dependents: 
+  Since ${decedent.name_full()} was married, their spouse and children will inherit their property. If ${decedent.name_full()} has any children who died after having children of their own, those grandchildren will inherit that share.
+  % elif decedent.is_married:
+  Since ${decedent.name_full()} was married, their spouse and any children of ${decedent.name_full()} will inherit their property. If ${decedent.name_full()} has any children who died after having children of their own, those grandchildren will inherit that share.
+  % elif any_dependents:
+  Since ${decedent.name_full()} was married, their children will inherit their property. If ${decedent.name_full()} has any children who died after having children of their own, those grandchildren will inherit that share.
+  % endif
+---
+id: who is intestate
+continue button field: who_is_intestate
+question: |
+  About who will inherit
+subquestion: |
+  If ${decedent.name_full()} has any children, they will get equal shares of the estate. If any of those children died after having their own children, those grandchildren will split their parent's share.
+
+  If ${decedent.name_full()} has no children or other descendents, their parents, siblings, and half-siblings will get equal shares of the estate. If one of ${decedent.name_full()}'s parents have died, the other parent will get a double share. If any of the siblings died after having children, those children will get their parent's share.
+
+  If ${decedent.name_full()} does not have siblings or any living parents, their grandparents will inherirt their estate. If any of ${decedent.name_full()}'s grandparents have died, their descendents will inherit their share.
+---
+id: any other children
+question: |
+  % if any_dependents:
+  Did ${decedent.name_full()} have any other children?
+  % else: 
+  Did ${decedent.name_full()} have any children?
+  % endif
+subquestion: |
+  % if any_dependents:
+  So far you have told us about ${dependents.full_names()}. If ${decedent.name_full()} had any other children, click **Yes**.
+
+  If ${decedent.name_full()} had other children who died after having children of their own, click **Yes**.
+  % else:
+  If ${decedent.name_full()} had children who died after having children of their own, click **Yes**.
+  % endif
+fields:
+  - no label: any_other_children
+    datatype: yesnoradio
+---
+id: intestate heirs name
+question: |
+  What is the name of ${decedent.name_full()}'s ${ordinal(i)} heir?
+subquestion: |
+  % if i != 0:
+  So far you have told us about ${fix_punctuation(intestate_heirs.full_names())}  
+  % elif will_filed or user_is_ben:
+  If this if you, please fill this out with your name. There will be more questions about you at the end of the interview.
+  % endif
+
+  % if decedent.is_married or any_dependents:
+  Under intestacy, all of ${decedent.name_full()}'s living children will be heirs. If ${decedent.name_full()} has any children who died after having children of their own, those grandchildren will also be heirs.
+  % else:
+  Under intestacy, if ${decedent.name_full()} had any living children, their children will be the heirs. If ${decedent.name_full()} has any children who died after having children of their own, those grandchildren will also be heirs.
+
+  If ${decedent.name_full()} has no living children or other descendents, their parents, siblings, and half-siblings will be their heirs. If any of their siblings died after having children, those nieces or nephews will also be heirs.
+
+  If ${decedent.name_full()} has no living siblings, parents, nieces, or nephews, their grandparents will be their intestate heirs. If any of their grandparents have died, those grandparents' descendents will also be heirs.
+  % endif
+
+  Intestacy can be complicated. You may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
+fields:
+  - code: |
+      intestate_heirs[i].name_fields()
+---
+id: intestate heir birthdate
+question: |
+  When was ${intestate_heirs[i].name_full()} born?
+fields:
+  - Birthdate: intestate_heirs[i].birthdate
+    datatype: BirthDate
+    alMax: ${ today().format("yyyy-MM-dd") }
+---
+code: |
+  def was_a_minor(person, event):
+    if date_difference(starting=person.birthdate, ending=event).years < 18:
+      return True
+    return False
+---
+id: intestate heir relationship
+question: |
+  What is ${intestate_heirs[i].name_full()}'s relationship to ${decedent.name_full()}?
+fields:
+  - Relationship: intestate_heirs[i].relationship
+    input type: dropdown
+    choices:
+      - Child
+      - Grandchild
+      - Parent
+      - Grandparent
+      - Sibling
+      - Niece
+      - Nephew
+      - Other
+  - ${intestate_heirs[i].name_full()} is ${decedent.name_full()}'s...: intestate_heirs[i].other_relationship
+    maxlength: 30
+    show if: intestate_heirs[i].relationship == "Other"
+---
+id: intestate heirs there is another
+question: |
+  Are there any other intestate heirs?
+subquestion: |
+  So far you have told us about ${intestate_heirs.full_names()}.
+
+  % if decedent.is_married or any_dependents:
+  Under intestacy, all of ${decedent.name_full()}'s living children will be heirs. If ${decedent.name_full()} has any children who died after having children of their own, those grandchildren will also be heirs.
+  % else:
+   Under intestacy, if ${decedent.name_full()} had any living children, their children will be the heirs. If ${decedent.name_full()} has any children who died after having children of their own, those grandchildren will also be heirs.
+
+  If ${decedent.name_full()} has no living children or other descendents, their parents, siblings, and half-siblings will be their heirs. If any of their siblings died after having children, those nieces or nephews will also be heirs.
+
+  If ${decedent.name_full()} has no living siblings, parents, nieces, or nephews, their grandparents will be their intestate heirs. If any of their grandparents have died, those grandparents' descendents will also be heirs.
+  % endif
+
+  Intestacy can be complicated. You may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
+fields:
+  - no label: intestate_heirs.there_is_another
+    datatype: yesnoradio
+---
+depends on:
+  - any_dependents
+  - any_other_children
+code: |
+  if not any_dependents and not any_other_children:
+    spouse_gets_all
+    spouse.numerator = 1
+    spouse.denominator = 1
+  else: 
+    spouse_gets_half
+    spouse.numerator= 1
+    spouse.denominator = 2
+  spouse_intestate_code = True
+---
+id: spouse gets all
+continue button field: spouse_gets_all
+question: |
+  ${spouse.name_full()}'s inheritance
+subquestion: |
+  Since ${decedent.name_full()} has no children or other descendents, ${spouse.name_full()} will inherit the entire estate.
+---
+id: spouse gets half
+continue button field: spouse_gets_half
+question: |
+  ${spouse.name_full()}'s inheritance
+subquestion: |
+  ${spouse.name_full()} will inherit half of the estate. ${decedent.name_full()}'s children and any other descendents will split the other half.
+---
+id: dependent intestate share
+question: |
+  What fraction of the estate will go to ${dependents[i].name_full()}?
+subquestion: |
+  ${collapse_template(intestacy_help)}
+fields:
+  - "1/": dependents[i].denominator
+    datatype: integer
+validation code: |
+  dependents[i].numerator= 1
+---
+template: intestacy_help
+subject: |
+  About intestacy
+content: |
+  % if decedent.is_married and (any_dependents or any_other_children):
+   ${decedent.name_full()}'s spouse should get 1/2th of their estate. ${decedent.name_full()}'s children should each get an equal share of the rest of the estate. For example, if ${decedent.name_full()} has two children, they should each get 1/4th of the estate. If any of ${decedent.name_full()}'s children died after having their own children, those grandchildren will split their parent's share. For example, if ${decedent.name_full()} has one living child and a dead child who had two children, the living child should get 1/4th of the estate and the dead child's children should each get 1/8th of the estate.
+
+  % elif any_dependents:
+  ${decedent.name_full()}'s children should each get an equal share of the estate. For example, if ${decedent.name_full()} has three children, they should each get 1/3rd of the estate. If any of ${decedent.name_full()}'s children died after having their own children, those grandchildren will split their parent's share. For example, if ${decedent.name_full()} has two living children and a dead child who had two children, the living children should each get 1/3rd of the estate and the dead child's children should each get 1/6th of the estate.
+  % else:
+  If {decedent.name_full()} has any children, they should each get an equal share of the estate. For example, if ${decedent.name_full()} has three children, they should each get 1/3rd of the estate. If any of ${decedent.name_full()}'s children died after having their own children, those grandchildren will split their parent's share. For example, if ${decedent.name_full()} has two living children and a dead child who had two children, the living children should each get 1/3rd of the estate and the dead child's children should each get 1/6th of the estate.
+
+  If ${decedent.name_full()} has no children, their parents, siblings, and half-siblings will get equal shares of the estate. If one of ${decedent.name_full()}'s parents have died, the other parent will get a double share. For example, if ${decedent.name_full()} has one living parent and one sibling, their parent should inherit 2/3rds of the estate and their sibling should inherit 1/3rd. If any of the siblings died after having children, those children will get their parent's share. For example, if ${decedent.name_full()} has one living parent, one living sibling, and a dead sibling who had two children, their parent should get 1/2th of the estate, the living sibling should get 1/4th of the estate, and the dead sibling's children should each get 1/8th of the estate.
+
+  If ${decedent.name_full()} does not have siblings or any living parents, their grandparents will inherirt their estate.  For example, if ${decedent.name_full()}'s maternal grandmother and both their paternal grandparents are alive, their maternal grandmother should get 1/2th of the estate and their paternal grandparents should each get 1/4th of the estate. If ${decedent.name_full()}'s grandparents have died, their descendents will inherit their share. For example, if ${decedent.name_full()}'s maternal grandmother is alive and their paternal grandparents died with two living children, their maternal grandmother should get 1/2th of the estate and their paternal grandparent's children should each get 1/4th of the estate.
+  % endif
+---
+id: intestate heir share
+question: |
+  What is ${intestate_heirs[i].name_full()}'s share of the estate?
+subquestion: |
+  ${collapse_template(intestacy_help)}
+
+  Share: [FIELD intestate_heirs[i].numerator]/[FIELD intestate_heirs[i].denominator]
+fields:
+  - no label: intestate_heirs[i].numerator
+    datatype: integer
+    max: 2
+  - no label: intestate_heirs[i].denominator
+    datatype: integer
+---
+id: asset info
+question: |
+  What is ${decedent.name_full()}'s ${ordinal(i)}'s asset?
+subquestion: |
+  Assets are anything a person owns that has financial value.
+
+  You will need to list each asset in ${decedent.name_full()}'s estate, including each bank account, stock, and cash.
+
+  If an asset is tied to an account number, include the account number in the description.
+
+  List the make, model, year, and vehicle identification number of any motor vehicle.
+fields:
+  - Type of asset: assets[i].type
+    input type: dropdown
+    choices:
+      - Savings accoun
+      - Checking account
+      - CD account
+      - Cash
+      - Money market account
+      - Motor vehicle
+      - Collectible
+      - Art
+      - Other property
+  - Description: assets[i].name
+    input type: area
+    rows: 2
+    maxlength: 200
+  - Value: assets[i].value
+    datatype: currency
+---
+code: |
+  def any_vehicle(list):
+    for asset in list:
+      if asset.type == "Motor vehicle":
+        return True
+    return False
+---
+id: secretary of state note
+continue button field: sec_state_note
+question: |
+  About vehicle transfers
+subquestion: |
+  The Illinois Secretary of State's Office may require you to use [**their Small Estate Affidavit form**](https://www.ilsos.gov/content/dam/publications/pdf_publications/rtopr31.pdf) for some vehicle transfers. You can copy the information from the forms this program makes to their form.
+---
+reconsider: True
+code: |
+  carless_total = 0
+  total_with_car = 0
+  for asset in assets:
+    total_with_car += asset.value
+    if asset.type != "Motor vehicle":
+      carless_total += asset.value
+  get_total = True
+---
+id: large estate kickout
+event: large_estate_kickout
+question: |
+  Sorry
+subquestion: |
+  This program can only be used for estates that are no more than $150,000, not including motor vehicles. Based on your ansers, ${decedent.name_full()}'s estate is worth ${total_with_car}.
+
+  Click **Back** if you made a mistake, or you can talk with a lawyer to discuss your options. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area.
+buttons:
+  - Exit: exit
+  - Restart: restart
+---
+id: unclaimed property treasurer
+question: |
+  Do you think the Illinois Treasurer's office might have some of ${decedent.name_full()}'s property?
+subquestion: |
+  You can look up whether the Treasurer's office has their property using the [**Treasury's unclaimed property webpage**](https://icash.illinoistreasurer.gov/).
+
+  If you click **Yes**, the following text will be added to the list of ${decedent.name_full()}'s assets: "Funds and/or assets held with the Illinois Treasurer's Office."
+
+  Even if you aren't sure, including this text will make it easier to recover ${decedent.name_full()}'s property.
 fields:
   - no label: unclaimed_property
-    datatype: yesnoradio
+    input type: yesnoradio
 ---
-id: other debts check
-question: |
-  Have all of ${decedent.name_full()}'s funeral expenses and other debts been paid?
-fields:
-  - no label: funeral_other_debts
-    datatype: yesnoradio
----
-#### FUNERAL EXPENSE ####
-id: funeral expense check
-question: |
-  Did ${decedent.name_full()} have unpaid funeral expenses?
-fields:
-  - no label: unpaid_funeral_expense.there_are_any
-    datatype: yesnoradio
----
+reconsider: True
 code: |
-  unpaid_funeral_expense[i].name.text
-  unpaid_funeral_expense[i].complete = True 
+  spouse_award_min = 20000
+  if any_dependents:
+    for child in dependents:
+      if (spouse.lives_with_decedent and child.lives_with_decedent) or (not spouse.lives_with_decedent and child.lives_with_spouse):
+        if child.age_in_years() < 18:
+          child.award_min = 10000
+          spouse_award_min += 10000
+        else:
+          child.award_min = 5000
+          spouse_award_min += 5000
 ---
-id: unpaid funeral expense
+id: spouse award
 question: |
-  Funeral and Burial expenses
+  How much should ${spouse.name_full()} be awarded?
 subquestion: |
-  Below are funeral expense(s) entered so far.
-  ${ unpaid_funeral_expense.table.show(editable=True) }
-fields:
-  - Are there any other funeral expense?: unpaid_funeral_expense.there_is_another
-    datatype: yesnoradio
----
-id: funeral expense owesd 
-question: |
-  Funeral and Burial expenses
-fields:
-  - Name: unpaid_funeral_expense[i].name.text
-  - Street address: unpaid_funeral_expense[i].address.address
-    address autocomplete: True
-  - Address line 2: unpaid_funeral_expense[i].address.unit
-    required: False
-  - City: unpaid_funeral_expense[i].address.city
-  - State: unpaid_funeral_expense[i].address.state
-    code: |
-      states_list() 
-  - ZIP code: unpaid_funeral_expense[i].address.zip
-  - Amount: unpaid_funeral_expense[i].value
-    datatype: currency
-    min: 0
----
-######## PAYMENTS FROM ESTATE ###############
-id: payments introduce
-question: |
-  Payments from estate
-subquestion: |
-  Intro area TODO to get the rest of the instructions later.
+  As ${decedent.name_full()}'s spouse, ${spouse.name_full()} is entitled to enough money to support them for 9 months. This money is called an award, and it is seperate from their inheritance.
 
-  Currently the limits are ${currency(spouse_limit)} and ${currency(child_limit)}
-field: payment_intro
----
-id: us debts
-question: |
-  Does test test owe any debts to the United States? Income taxes are an example.
+  Based on the information you have given, ${spouse.name_full()}'s award must be at least ${currency(spouse_award_min)}.
 fields:
-  - no label: us_debts_paid
-    datatype: yesnoradio
----
-id: us debts
-question: |
-  Debts Due to United States
-subquestion: |
-  Did ${decedent.name_full()} owe any debts to the United States? 
-  Income taxes are an example.
-fields:
-  - no label: us_debts.there_are_any
-    datatype: yesnoradio
----
-code: |
-  us_debts[i].name.text
-  us_debts[i].complete = True 
----
-id: add us debts
-question: |
-  Debts Due to United States
-subquestion: |
-  Below are US debts entered so far:
-  ${ us_debts.table.show(editable=True) }
-fields:
-  - Are there any other debts?: us_debts.there_is_another
-    datatype: yesnoradio
----
-id: us debts owed
-question: |
-  Debts Due to the United States
-fields: 
-  - Name: us_debts[i].name.text
-  - Street address: us_debts[i].address.address
-    address autocomplete: True
-  - Address line 2: us_debts[i].address.unit
-    required: False
-  - City: us_debts[i].address.city
-  - State: us_debts[i].address.state
-    code: |
-      states_list() 
-  - ZIP code: us_debts[i].address.zip
-  - Amount: us_debts[i].value
+  - Amount: spouse.award
     datatype: currency
-    min: 0
+    min: ${spouse_award_min}
+  - Has this award already been paid?: spouse.paid_award
+    datatype: yesnoardio
 ---
-id: employment debts
+id: child award
 question: |
-  Money Due Employees
+  How much should ${dependents[i].name_full()} be awarded?
 subquestion: |
-  Does ${decedent.name_full()} owe any employee $800 or less for services rendered within four 
-  months before ${decedent_death_date}, or for expenses attending the last illness?
+  As ${decedent.name_full()}'s dependent, ${dependents[i].name_full()} is entitled to enough money to support them for 9 months. This money is called an award, and it is seperate from their inheritance.
+
+  Based on the information you have given, ${dependents[i].name_full()}'s award must be at least ${currency(dependents[i].award_min)}.
 fields:
-  - no label: employees.there_are_any
-    datatype: yesnoradio
----
-code: |
-  employees[i].name.text
-  employees[i].complete = True 
----
-id: add employment debt
-question: |
-  Money Due Employees
-subquestion: |
-  Below are the employee(s) entered so far:
-  ${ employees.table.show(editable=True) }
-fields:
-  - Is there another employee?: employees.there_is_another
-    datatype: yesnoradio
----
-id: employee owed
-question: |
-  Money Due Employees
-fields: 
-  - "Employee Name": employees[i].name.text
-  - Street address: employees[i].address.address
-    address autocomplete: True
-  - Address line 2: employees[i].address.unit
-    required: False
-  - City: employees[i].address.city
-  - State: employees[i].address.state
-    code: |
-      states_list() 
-  - ZIP code: employees[i].address.zip
-  - "Amount Owed": employees[i].value
+  - Amount: dependents[i].award
     datatype: currency
-    min: 0
+    min: ${dependents[i].award_min}
+  - Has this award already been paid?: dependents[i].paid_award
+    datatype: yesnoardio
 ---
-id: trust property
+id: any trust property
 question: |
-  Money or Property Held in Trust
+  Did ${decedent.name_full()} have money or property received or held in trust that cannot be identified or traced?
 subquestion: |
-  Did ${decedent.name_full()} hold or receive money or other property in trust which cannot 
-  be identified or traced?
+  If ${decedent.name_full()} was a **[trustee]** and their estate still has money or property belonging to someone else, click **Yes**.
 fields:
-  - no label: trust_property.there_are_any
+  - no label: any_trust_property
     datatype: yesnoradio
+terms: 
+  - trustee: |
+      A **trustee** is a person that has custody of or control over funds or items of someone else.
 ---
-code: |
-  trust_property[i].name.text
-  trust_property[i].complete = True 
----
-id: add trust property
+id: trust property description
 question: |
-  Money or Property Held in Trust
-subquestion: |
-  Below are the property entered so far:
-  ${ trust_property.table.show(editable=True) }
+  What is the ${ordinal(i)} property or money ${decedent.name_full()} held in trust?
 fields:
-  - Are there any more property?: trust_property.there_is_another
-    datatype: yesnoradio
----
-id: trust property details
-question: |
-  Money or Property Held in Trust
-fields: 
-  - Property Description: trust_property[i].name.text
+  - Property description: trust_property[i].name
+    maxlength: 100
   - Value: trust_property[i].value
     datatype: currency
-    min: 0
+---
+id: trust property there is another
+question: |
+  Did ${decedent.name_full()} hold any other property in trust?
+subquestion: |
+  So far you have told us about ${fix_punctuation(comma_and_list(trust_property))}.
+fields:
+  - no label: trust_property.there_is_another
+    datatype: yesnoradio
+---
+id: funeral debts
+question: |
+  Does ${decedent.name_full()} have any unpaid funeral or burial expenses?
+fields:
+  - no label: any_funeral_debts
+    datatype: yesnoradio
+---
+id: united states debts
+question: |
+  Does ${decedent.name_full()} have any unpaid debts owed to the United States?
+subquestion: |
+  If ${decedent.name_full()} has unpaid income taxes, click **Yes**.
+fields:
+  - no label: any_us_debts
+    datatype: yesnoradio
+---
+id: employee debts
+question: |
+  Does ${decedent.name_full()} owe $800 or less to an employee for end-of-life services?
+subquestion: |
+  End-of-life services means any services rendered in the last 5 months of ${decedent.name_full()}'s life or any expenses from attending ${decedent.name_full()}'s last illness.
+fields:
+  - no label: any_employee_debts
+    datatype: yesnoradio
 ---
 id: illinois debts
 question: |
-  Debt Due to State of Illinois
+  Does ${decedent.name_full()} have any debts to Illinois?
 subquestion: |
-  Does ${decedent.name_full()} owe any debts to the State of Illinois or any county, township, 
-  city, town, village, or school district located in Illinois?
+  If ${decedent.name_full()} has any debts to the State of Illinois or any county, township, city, town, village, or school district in Illinois, click **Yes**.
 fields:
-  - no label: illinois_debts.there_are_any
+  - no label: any_illinois_debts
     datatype: yesnoradio
 ---
-code: |
-  illinois_debts[i].name.text
-  illinois_debts[i].complete = True 
----
-id: add illinois debt
+id: other debts
 question: |
-  Debt Due to State of Illinois
-subquestion: |
-  Below are the debts entered so far:
-  ${ illinois_debts.table.show(editable=True) }
-fields:
-  - Are there any more debts?: illinois_debts.there_is_another
-    datatype: yesnoradio
----
-id: illinois debt details
-question: |
-  Debt Due to State of Illinois
-fields: 
-  - "Agency or Department": illinois_debts[i].name.text
-  - Street address: illinois_debts[i].address.address
-    address autocomplete: True
-  - Address line 2: illinois_debts[i].address.unit
-    required: False
-  - City: illinois_debts[i].address.city
-  - State: illinois_debts[i].address.state
-    code: |
-      states_list() 
-  - ZIP code: illinois_debts[i].address.zip
-  - "Amount Owed": illinois_debts[i].value
-    datatype: currency
-    min: 0
----
-id: other claims
-question: |
-  All Other Claims
-subquestion: |
   Are there any other claims against ${decedent.name_full()}'s estate?
+subquestion: |
+  If ${decedent.name_full()} has any unpaid debts, click **Yes**.
 fields:
-  - no label: other_claims.there_are_any
+  - no label: any_other_debts
     datatype: yesnoradio
 ---
 code: |
-  other_claims[i].name.text
-  other_claims[i].complete = True 
+  def any_debts():
+    if any_funeral_debts or any_us_debts or any_employee_debts or any_illinois_debts or any_other_debts:
+      return True
+    else:
+      return False
 ---
-id: add other claims
+id: funeral debt info
 question: |
-  All Other Claims
-subquestion: |
-  Below are the other claims entered so far:
-  ${ other_claims.table.show(editable=True) }
+  What is ${decedent.name_full()}'s ${ordinal(i)} unpaid funeral or burial expenses?
 fields:
-  - Are there any other claims?: other_claims.there_is_another
-    datatype: yesnoradio
----
-id: other claims details
-question: |
-  All Other Claims
-fields: 
-  - Name: other_claims[i].name.text
-  - Street address: other_claims[i].address.address
-    address autocomplete: True
-  - Address line 2: other_claims[i].address.unit
-    required: False
-  - City: other_claims[i].address.city
-  - State: other_claims[i].address.state
-    code: |
-      states_list() 
-  - ZIP code: other_claims[i].address.zip
-  - Describe the claim: other_claims[i].description
-  - "Amount Owed": other_claims[i].value
+  - Amount owed: funeral_debts[i].amount
     datatype: currency
-    min: 0
+  - Creditor name: funeral_debts[i].name.first
+  - Address.<All address fields>: funeral_debts[i].address
 ---
-#### USER ####
-id: user about you
+id: funeral debt there is another
 question: |
-  About you
+  Does ${decedent.name_full()} have another unpaid funeral or burial expense?
 subquestion: |
-  Are you one of the heirs?
+  So far you have told us about the expenses owed to ${fix_punctuation(funeral_debts.full_names())}
 fields:
-  - no label: user_heir_check
+  - no label: funeral_debts.there_is_another
     datatype: yesnoradio
 ---
-id: user not heir
+id: us debt info
 question: |
-  About you
-subquestion: |
-  If not heir, are you a representative or fiduciary of one of heirs?
+  What is ${decedent.name_full()}'s ${ordinal(i)} unpaid debt owed to the United States?
 fields:
-  - no label: user_representing_check
+  - Amount owed: us_debts[i].amount
+    datatype: currency
+  - Agency or department: us_debts[i].name.first
+  - Address.<All address fields>: us_debts[i].address
+---
+id: us debt there is another
+question: |
+  Does ${decedent.name_full()} have another unpaid debt owed to the United States?
+subquestion: |
+  So far you have told us about the expenses owed to ${fix_punctuation(us_debts.full_names())}
+fields:
+  - no label: us_debts.there_is_another
     datatype: yesnoradio
 ---
-id: spouse user
+id: employee debt info
 question: |
-  About you
-subquestion: |
-  Are you ${spouse.name_full()}?
+  What is ${decedent.name_full()}'s ${ordinal(i)} unpaid debt to an employee for end-of-life services?
 fields:
-  - no label: user_spouse
+  - Amount owed: employee_debts[i].amount
+    datatype: currency
+  - Employee name: employee_debts[i].name.first
+  - Address.<All address fields>: employee_debts[i].address
+---
+id: employee debt there is another
+question: |
+  Does ${decedent.name_full()} have another unpaid to an employee for end-of-life services?
+subquestion: |
+  End-of-life services means any services rendered in the last 5 months of ${decedent.name_full()}'s life or any expenses from attending ${decedent.name_full()}'s last illness.
+
+  So far you have told us about the expenses owed to ${fix_punctuation(employee_debts.full_names())}
+fields:
+  - no label: employee_debts.there_is_another
     datatype: yesnoradio
 ---
-id: your name
-sets:
-  - users.name.first
-  - users.name.middle
-  - users.name.last
-  - users.name.suffix
+id: illinois debt info
+question: |
+   What is ${decedent.name_full()}'s ${ordinal(i)} debt to Illinois or a county, town, city, village, or school district in Illinois?
+fields:
+  - Amount owed: illinois_debts[i].amount
+    datatype: currency
+  - Agency or department: illinois_debts[i].name.first
+  - Address <all address fields>: illinois_debts[i].address
+---
+id: illinois debt there is another
+question: |
+   Does ${decedent.name_full()} have another debt to Illinois or a county, town, city, village, or school district in Illinois?
+subquestion: |
+  So far you have told us about the expenses owed to ${fix_punctuation(illinois_debts.full_names())}
+fields:
+  - no label: illinois_debts.there_is_another
+    datatype: yesnoradio
+---
+id: other debt info
+question: |
+  What is ${decedent.name_full()}'s ${ordinal(i)} claim against their estate?
+fields:
+  - Amount owed: other_debts[i].amount
+  - Claimant name: other_debts[i].name.first
+  - Address <all address fields>: other_debts[i].address
+---
+id: other debt there is another
+question: |
+   Is there another claim against ${decedent.name_full()}'s estate?
+subquestion: |
+  So far you have told us about the claims of ${fix_punctuation(other_debts.full_names())}
+fields:
+  - no label: other_debts.there_is_another
+    datatype: yesnoradio
+---
+id: about awards
+continue button field: about_awards
+question: |
+  % if decedent.was_married and any_dependents:
+  About awards for ${decedent.name_full()}'s spouse and dependent children
+  % elif decedent.was_married:
+  About the award for ${decedent.name_full()}
+  % else:
+  About awards for ${decedent.name_full()}'s dependent children
+  % endif
+subquestion: |
+  % if decedent.was_married and any_dependents:
+  ${decedent.name_full()}'s spouse and dependent children are entitled to a part of the estate (also called an award). This is different from an inheritance. It is an amount of money intended to support the spouse and children for nine months.
+
+  ${collapse_template(award_explainer)}
+
+  ${spouse.name_full()}'s award must be at least $20,000. Minor children must get an award of at least $10,000. Dependent adult children must get an award of at least $5,000. The awards of children who live with ${spouse.name_full()} will be combined with their award.
+  % elif decedent.was_married:
+   As ${decedent.name_full()}'s spouse, ${spouse.name_full()} is entitled to an award from the estate (also called an award). This is different from an inheritance. It is an amount of money intended to support them for nine months.
+
+  ${collapse_template(award_explainer)}
+  % elif any_dependents:
+  ${decedent.name_full()}'s dependent children are entitled to an award from the estate (also called an award). This is different from an inheritance. It is an amount of money intended to support the children for nine months.
+
+  ${collapse_template(award_explainer)}
+
+  A child's award must be at least $10,000 if they are a minor, and at least $5,000 if they are an adult.
+  % endif
+
+  % if awards_total() < total_with_car:
+  Based on your answers, ${decedent.name_full()}'s estate is not large enough to pay these awards in full. You will still need to list the amount owed in awards even though the estate will not be able to pay all of it.
+  % endif
+---
+template: award_explainer
+subject: |
+  **What is the difference between an award and an inheritance?**
+content: |
+  % if decedent.was_married and any_dependents:
+  An **award** is treated like a debt of the estate. The estate pays an **award** before it pays most other debts. This means that   ${decedent.name_full()}'s spouse and dependent children will get a part of the estate even if there is not enough money to pay all the estate's debt.
+  % elif decedent.was_married:
+  An **award** is treated like a debt of the estate. The estate pays an **award** before it pays most other debts. This means that   ${decedent.name_full()}'s spouse will get a part of the estate even if there is not enough money to pay all the estate's debt.
+  % elif any_dependents:
+  An **award** is treated like a debt of the estate. The estate pays an **award** before it pays most other debts. This means that   ${decedent.name_full()}'s dependent children will get a part of the estate even if there is not enough money to pay all the estate's debt.
+  % endif
+
+  An **inheritance** is a share of what is left in the estate after its debts are paid.
+---
+code: |
+  def spouse_min_award():
+    spouse_min_award = 20000
+    if any_dependents:
+      for dependent in dependents:
+        if dependent.lives_with_spouse:
+          if dependent.minor:
+            spouse_min_award += 10000
+          else:
+            spouse_min_award += 5000
+      return spouse_min_award  
+---
+code: |
+  def awards_total():
+    all_awards = 0
+    if decedent.was_married:
+      all_awards += 20000
+    if any_depedents:
+      for person in dependents:
+        if person.age_in_years() < 18:
+          all_awards += 10000
+        else:
+          all_awards += 5000
+    return all_awards
+---
+code: |
+  spouse_dependents = []
+  elsewhere_dependents = []
+  for dependent in dependents:
+    if dependent.lives_with_spouse:
+      spouse_dependents.append(dependent)
+    else:
+      elsewhere_dependents.append(dependent)
+---
+code : |
+  spouse_default_award = 20000
+  minor_child_default_award = 10000
+  adult_child_default_award = 5000
+---
+id: spouse award
+question: |
+  How much should ${spouse.name_full()} be awarded?
+subquestion: |
+  % if any_dependents:
+   This should be enough to support ${spouse.name_full()}, as well as ${spouse_dependents.full_names()}, for nine months. 
+
+  It must be at least ${currency(spouse_default_award)} plus ${currency(minor_child_default_award)} for each minor child and ${currency(adult_child_default_award)} for each dependent adult child living with ${spouse.name_full()}. Based on your answers, that means it must be at least ${currency(spouse_min_award())}.
+  % else:
+  This should be enough to support ${spouse.name_full()} for nine months. It must be at least ${currency(spouse_default_award)}.
+  % endif
+
+  % if awards_total() < total_with_car:
+  Based on your answers, ${decedent.name_full()}'s estate is not large enough to pay awards in full. You will still need to enter the minimum amount owed here.
+  % endif
+fields:
+  - Award: spouse.award
+    datatype: currency
+    min: |
+       ${spouse_min_award()}
+---
+code: |
+  # this function does not consider whether a dependent lives with the spouse. In the template, this function should be used with the elsewhere_dependents list.
+  def dependent_min_award(dependent):
+    if dependent.minor:
+      return minor_child_default_award
+    else:
+      return adult_child_default_award
+---
+id: dependent award
+question: |
+  How much should ${dependents[i].name_full()}? be awarded?
+subquestion: |
+  % if dependents[i].age_in_years() < 18:
+  This should be enough to support ${dependents[i].name_full()} for nine months. It must be at least ${currency(minor_child_default_award)}.
+  % else:
+  This should be enough to support ${dependents[i].name_full()} for nine months. It must be at least ${currency(adult_child_default_award)}.
+  % endif
+
+  % if awards_total() < total_with_car:
+  Based on your answers, ${decedent.name_full()}'s estate is not large enough to pay awards in full. You will still need to enter the minimum amount owed here.
+  % endif
+fields:
+  - Award: dependents[i].award
+    datatype: currency
+    min: |
+       ${dependent_min_award(dependents[i])}
+---
+id: about paying debts
+continue button field: about_paying_debts
+question: |
+  About paying the estate's debts
+subquestion: |
+  You will need to pay the estate's debts before you give the heirs their shares of the estate.
+
+  The estate's debt will need to be paid in order. This order is based on class of debt each one falls under. The debts you entered will be listed in order on the small estate affidavit.
+
+  ${collapse_template(class_list)}
+
+  If ${decedent.name_full()}'s estate does not have enough cash to pay its debts, you will have to sell off the estate's other assets to pay the debts. If that still is not enough, some of the estate's creditors may be unpaid and the heirs will get nothing. You may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
+---
+template: class_list
+subject: |
+  **The order claims against the estate should be paid**
+content: |
+  Estates should pay their debts in the following order:  
+
+  * Class 1: Funeral and burial expenses
+  * Class 2: Surviving spouse and dependent children's awards
+  * Class 3: Debts due to the United States
+  * Class 4: Money due employees
+  * Class 5: Money or property held in trust
+  * Class 6: Debts due to the State Of Illinois or others
+  * Class 7: All other claims
+---
+code: |
+  user_who_choices = []
+  if decedent.is_married:
+    user_who_choices.append(spouse.name_full())
+  if any_dependents:
+    for person in dependents:
+      user_who_choices.append(person.name_full())
+  if any_other_heirs:
+    for person in heirs:
+      user_who_choices.append(person.name_full())
+---
+id: user who
+question: |
+  Who are you?
+fields:
+  - "I am...": users[0].who
+    input type: radio
+    choices:
+      code: |
+        user_who_choices
+---
+id: user rep who
+question: |
+  Who do you represent?
+subquestion: |
+  Earlier you said you were a representative or fiduciary of one of ${decedent.name_full()}'s heirs.
+fields: 
+  - "I reprsent...": users[0].rep_who
+    input type: radio
+    choices:
+      code: |
+        user_who_choices
+---
+id: user name
 question: |
   What is your name?
 fields:
   - code: |
-      users.name_fields()    
-  - Relationship: users.relationship
-    datatype: radio
-    choices:
-    - Representative
-    - Child
-    - Agent
+      users[0].name_fields()
 ---
 id: user address
 question: |
-  About you
-subquestion: |
   What is your address?
 fields:
-  - Street address: users.address.address
+  - Street address: users[0].address.address
     address autocomplete: True
-  - Address line 2: users.address.unit
+  - Address line 2: users[0].address.unit
     required: False
-  - City: users.address.city
-  - State: users.address.state
+  - City: users[0].address.city
+  - State: users[0].address.state
     code: |
-      states_list() 
-  - ZIP code: users.address.zip
+      states_list()
+    default: IL
+  - ZIP code: users[0].address.zip
 ---
-id: user mailing address
+id: name an agent
 question: |
-  About you
+  Do you want to name an agent for service of process?
 subquestion: |
-  Do you have a mailing address?
+  An agent for service of process is a person who may accept court papers for you if you are sued. The agent must be a resident of Illinois.
+
+  If you click **No**, you will have to receive any service of process yourself.
 fields:
-  - Same address: users.mailing_address
-    datatype: object_radio
-    choices:
-      - users.address
-    object labeler: |
-      lambda y: y.on_one_line()
-    none of the above: |
-      Somewhere else
-    disable others: True
-    show if:
-      code: |
-        defined("users.address")
-    default: |
-      users.address
-  - Street address: users.mailing_address.address
-    address autocomplete: True
-  - Address line 2: users.mailing_address.unit
-    required: False
-  - City: users.mailing_address.city
-  - State: users.mailing_address.state
-    code: |
-      states_list() 
-  - ZIP code: users.mailing_address.zip
+  - no label: name_an_agent
+    datatype: yesnoradio
 ---
-#### AGENT ####
-id: agent info
-question: |
-  Agent Detail
-subquestion: |
-  Do you want to name an agent for service of process or do you want to receive service of 
-  process yourself?
-fields:
-  - Agent: agent_check
-    input type: radio
-    choices:
-      - "I want to name an agent": yes
-      - "I do not want to name an agent": no
+code: |
+  def agent_needed(user):
+    if user.address.state == "IL":
+      if name_an_agent:
+        return True
+      else:
+        return False
+    else:
+      return True
 ---
 id: agent name
-sets:
-  - agent.name.first
-  - agent.name.middle
-  - agent.name.last
-  - agent.name.suffix
 question: |
-  Agent Detail
-subquestion: |
-  What is the name of the agent?
+  What is the name of the agent for service of process?
 fields:
   - code: |
-      agent.name_fields()    
+       agent.name_fields()
 ---
-id: agent address
+id: agent phone
 question: |
-  Agent Detail
-subquestion: |
-  What is ${agent.name_full()}'s address?
+  What is ${agent.name_full()}'s phone number?
 fields:
-  - Street address: agent.address.address
-    address autocomplete: True
-  - Address line 2: agent.address.unit
-    required: False
-  - City: agent.address.city
-  - State: agent.address.state
-    code: |
-      states_list() 
-    default: IL
-  - ZIP code: agent.address.zip
-validation code: |
-  if agent.address.state != "IL":
-    validation_error("Agent must live in Illinois")
----
-id: agent phone check
-question: |
-  Agent Detail
-subquestion: |
-  Do you wish to include ${agent.name_full()}'s phone number?
-fields:
-  - no label: agent_include_phone
-    datatype: yesnoradio
-  - "Phone number": agent.phone_number
+  - Phone number: agent.phone_number
     datatype: al_international_phone
-    show if: agent_include_phone
 ---
-######### ALL RECIPIENTS #########
-reconsider: True
-code: |
-  all_recipients.clear()
-  if spouse_alive:
-    all_recipients.add(spouse)
-  if heirs.number_gathered > 0:
-    for child in heirs:
-      all_recipients.add(child)
----
-id: all recipients list
-continue button field: recipients_list
+id: will text info
+continue button field: will_text_info
 question: |
-  All recipeints to ${decedent.name_full()} estate
+  Including a will in a small estate affidavit
 subquestion: |
-  These are the list of heirs so far ${comma_and_list(all_recipients)}.
+  Since ${decedent.name_full()} left a will, the small estate affidavit will include the following statement:
+
+  "The decedent left a will, which has been filed with the clerk of an appropriate court. A certified copy of the will on file is attached. To the best of my knowledge and belief the will on file is the decedent's last will and was signed by the decedent and the attesting witnesses as required by law and would be admittable to probate. The names and places of residence of the legatees and the portion of the estate, if any, to which each legatee is entitled are as follows . . ." 
+
+  If you are not sure if the information contained in the above paragraph is true, you may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
+
+  You will have to attach a certified copy of the will to the small estate affidavit.
 ---
-code: |
-  all_recipients[i].name.first
-  all_recipients[i].address.address
-  all_recipients[i].complete = True
----
-id: all recipeients 
+id: next steps
+continue button field: next_steps
 question: |
-  Does ${decedent.name_full()} have any more heirs?
+  After you finish this program
 subquestion: |
-  So far you have told us about ${comma_and_list(all_recipients.complete_elements().full_names())}.
-fields:
-  - "Anyone else?": all_recipients.there_is_another
-    datatype: yesnoradio
----
-id: all recipeients check
-question: |
-  Did ${decedent.name_full()} have any recipients to their estate?
-subquestion: |
-  These are the list of heirs so far ${comma_and_list(all_recipients)}.  
-fields:
-  - no label: all_recipients.there_are_any
-    datatype: yesnoradio
----
-id: adding all recipients 
-sets:
-  - all_recipients[i].name.first
-  - all_recipients[i].name.middle
-  - all_recipients[i].name.last
-  - all_recipients[i].name.suffix
-question: |
-  What is the ${ordinal(i)} recipeients name?
-fields:
-  - code: |
-      all_recipients[i].name_fields()
-  - Relationship: all_recipients[i].relationship
-    input type: radio
-    choices:
-    - Spouse
-    - Child
-    - Grandchild
-    - Parent 
-    - Sibling
-    - Neice
-    - Nephew
-    - Grandparent
-    - Other relationship
-  - Minor (under 18): all_recipients[i].child_minor
-    datatype: yesnoradio
-  - Birthdate: all_recipients[i].birthdate
-    datatype: BirthDate
-    required: False
-    show if: all_recipients[i].child_minor
-  - Description: all_recipients[i].description
-  - Award: all_recipients[i].award
-    datatype: currency
-    min: 0
-validation code: |
-  if showifdef("all_recipients[i].birthdate") and all_recipients[i].age_in_years() > 18:
-    validation_error("Minor child must be under 18")
----
-sets:
-  - all_recipients[i].address.address
-id: all recipients address
-question: |
-  What is the ${all_recipients[i].name_full()}'s address?
-fields:
-  - Street address: all_recipients[i].address.address
-    address autocomplete: True
-  - Address line 2: all_recipients[i].address.unit
-    required: False
-  - City: all_recipients[i].address.city
-  - State: all_recipients[i].address.state
-    code: |
-      states_list() 
-  - ZIP code: all_recipients[i].address.zip
----
-#### DOWNLOAD FORMS ####
-id: forms finished
-continue button field: finished
-question: |
-  Getting the Small Estate Affidavit form ready
-subquestion: |
-  You have now completed this program. Here are the steps you need to take to create your form:
+  Once you download your small estate affidavit, you will need to attach the ${decedent.name_full()}'s death certificate and sign the document in front of a notary. To learn more about notaries, read ILAO's article, [**What is a notary?**](https://www.illinoislegalaid.org/node/176196)
 
-  - If you want to make any changes to your answers or add missing information, click the __review__ you want to go to.
+  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has the ${decedent.name_full()}'s property. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, read ILAO's guide to [**using a small estate affidaivt](https://www.illinoislegalaid.org/node/31836).
 
-  - If you have filled in all your answers and do not want to make changes, click the finshed button.
+  % if any_vehicle(assets):
+  Since ${decedent.name_full()}'s estate includes a motor vehicle, you may also need to use the [**Illinois Secretary of State's small estate affidavit form**](https://www.ilsos.gov/content/dam/publications/pdf_publications/rtopr31.pdf). The forms you download at the end of the program will include a blank copy of this form.
 
-  - When the form appears, you may print it or save it on your computer.
+  % endif
 
-  - Keep a copy of the form for your records.
-
-  - You must attach a copy of the death certificate to the small estate affidavit. Before you sign your name on the printed document, make sure that you have met all of the requirements for using a small estate affidavit. If you have questions about those requirements, talk to a lawyer.
-
-  - Learn more about [transferring property with a small estate affidavit.](https://www.illinoislegalaid.org/legal-information/transferring-property-small-estate-affidavit)
-
+  **Warning:** If you use a small estate affidavit incorrectly, you may be personally liable for any losses you cause. This menas you could be sued if you forget to include an heir, if you don't list all the estate's property in the affidavit, or if you don't pay one of the estate's debts. You should only use a small estate affidavit if you have the legal right to do so, and you should make sure that all information in the small estate affidavit is correct.
 ---
 id: forms assembling
 continue button field: forms_assembling
@@ -1126,410 +1720,35 @@ event: get_docs_screen
 question: |
   Download
 subquestion: |
-  Your form is ready. View and download your form below. Click **:edit: Make changes** to fix any mistakes.
-  
-  ${ action_button_html(url_action('review_answers'), label=':edit: Make changes', color='success', size="md") }
+  Your forms are ready. View and download your forms below. Click **:edit: Make changes** to fix any mistakes.
 
+  Read the instructions to learn what to do next.
+
+  ${ action_button_html(url_action('review_answers'), label=':edit: Make changes', color='success', size="md") }
+  
   ${ al_user_bundle.download_list_html() }
 
   [NEWLINE]
 
   ${ al_user_bundle.send_button_html(show_editable_checkbox=False) }
-
+  
   Thank you for using ILAO Easy Forms!
 under: |
   % if not user_logged_in():
   [${fa_icon("sign-in-alt", color="#0079d0", size="sm")} **Sign-in**](${url_of('login', next=interview_url())}) or [**create**](${url_of('register', next=interview_url())}) an ILAO Easy Form account to save your progress (optional).
-  % endif
+  % endif 
 
+  &nbsp;
   ${ action_button_html(interview_url(i="docassemble.ILAO:feedback.yml", easy_form_interview=ilao_easy_form_url, easy_form_title=ilao_easy_form_title, easy_form_page=current_context().question_id, easy_form_variable=current_context().variable, local=False,reset=1), label=':comment: Was this program helpful?', color="#181c36", size="md", new_window=True) }
 ---
-objects:
-  - al_user_bundle: ALDocumentBundle.using(elements=[next_steps, small_estate_affidavit], filename="completed_small_estate_affidavit.docx", title="All forms", enabled=True)
----
-attachment:
-  - name: next_steps
-    variable name: next_steps[i]
-    filename: next_steps
-    docx template file: next_steps.docx
----
-attachment:
-  - name: small_estate_affidavit
-    variable name: small_estate_affidavit[i]
-    filename: small_estate_affidavit
-    docx template file: small_estate_affidavit.docx
----
-objects:
-  - next_steps: ALDocument.using(title="Next Steps", filename="next_steps.docx", enabled=True, has_addendum=False)
-  - small_estate_affidavit: ALDocument.using(title="Small Estate Affidavit", filename="small_estate_affidavit.docx", enabled=True, has_addendum=False)
----
-####### REVIEWS #########
-id: review screen
-event: review_answers
-question: |
-  Review screen
-subquestion: |
-  Edit your answers below.
-review:
-  - Edit: decedent.name.first
-    button: |
-      **Decedent Name**
-      * ${decedent.name_full()}
-  - Edit: illinois_death
-    button: | 
-      **Did ${decedent.name_full()} live in Illinois at the time of death?**  
-      ${word(yesno(illinois_death))}
-  - Edit: assets_limit
-    button: | 
-      **Do you think ${decedent.name_full()}'s total assets are less than $100,000?**  
-      ${word(yesno(assets_limit))}
-  - Edit: decedent_will
-    button: | 
-      **Did ${decedent.name_full()} leave a will?**  
-      ${word(yesno(decedent_will))}
-  - Edit: will_filed
-    button: | 
-      **If ${decedent.name_full()} had a will, is it filed with the clerk of appropariate court?**  
-      ${word(yesno(will_filed))}
-  - Edit: decedent.relationship
-    button: | 
-      **Relationship to ${decedent.name_full()}:**  
-      * ${decedent.relationship}
-  - Edit: decedent_death_date
-    button: | 
-      **${decedent.name_full()} died on :**  
-      ${decedent_death_date}
-  - Edit: decedent_property.address
-    button: |
-      **${decedent.name_full()} address before death:**
-      Street address: ${ decedent_property.address}
-      Address line 2: ${ decedent_property.unit}
-      City or Town: ${ decedent_property.city}
-      State: ${ decedent_property.state}
-      ZIP: ${ decedent_property.zip}
-      County: ${ decedent_property.county}
-  - Edit: 
-      - manual_county
-      - recompute:
-        - trial_court
-    button: |
-      **County where this case is filed:**
-      ${ decedent_property.county }
-    show if: len(manual_county) > 0
-  - Edit: surviving_spouse
-    button: | 
-      **Was ${decedent.name_full()} married at the time of their death?**  
-      ${word(yesno(surviving_spouse))}
-      % if surviving_spouse:
-      Is the spouse still alive?: ${word(yesno(spouse_alive))}
-      % endif
-  - Edit: spouse.name.first
-    button: |
-      **${decedent.name_full()} spouse’s name**
-      * ${spouse.name_full()}
-  - Edit: spouse.address
-    button: |
-      **${spouse.name_full()} address:**
-      % if decedent_property == spouse.address:
-      * Same address as ${decedent.name_full()}
-      % else:
-      Street address: ${ decedent_property.address}
-      Address line 2: ${ decedent_property.unit}
-      City or Town: ${ decedent_property.city}
-      State: ${ decedent_property.state}
-      ZIP: ${ decedent_property.zip}
-      County: ${ decedent_property.county}
-      % endif
-  - Edit: heirs.there_are_any
-    button: | 
-      **Did ${decedent.name_full()} have any minor or 
-      adult dependent children at the time of their death?**  
-      ${word(yesno(heirs.there_are_any))}
-  - Edit: heirs.revisit
-    button: |
-      **Minor or adult dependent children**
-      % for item in heirs:
-      - ${ item.name_full() }
-      % endfor
-  - Edit: all_recipients.there_are_any
-    button: | 
-      **Any recipeients to ${decedent.name_full()} estate:**  
-      ${word(yesno(all_recipients.there_are_any))}
-  - Edit: all_recipients.revisit
-    button: |
-      **All Recipeients**
-      % for item in all_recipients:
-      - ${ item.name_full() }
-      % endfor
-  # ESTATE DETAILS
-  - Edit: decedent_assets.revisit
-    button: |
-      **Estate Assets**
-      ${ decedent_assets.table.show(editable=False) }    
-  - Edit: unclaimed_property
-    button: | 
-      **“Funds and/or assets held with the Illinois Treasurer’s Office”**  
-      Add text below the list of assets? ${word(yesno(unclaimed_property))}
-  - Edit: funeral_other_debts
-    button: | 
-      **Have all of ${decedent.name_full()}'s funeral expenses and other debts been paid?**  
-      ${word(yesno(funeral_other_debts))}
-  - Edit: unpaid_funeral_expense.there_are_any
-    button: | 
-      **Did ${decedent.name_full()} have unpaid funeral expenses?**  
-      ${word(yesno(unpaid_funeral_expense.there_are_any))}
-  - Edit: unpaid_funeral_expense.revisit
-    button: |
-      **Unpaid Funeral Expenses**
-      ${ unpaid_funeral_expense.table.show(editable=False) }      
-  # PAYMENTS
-  - Edit: us_debts.there_are_any
-    button: | 
-      **Did ${decedent.name_full()} have unpaid funeral expenses?**  
-      ${word(yesno(us_debts.there_are_any))}
-  - Edit: us_debts.revisit
-    button: |
-      **Debts Due to United States**
-      ${ us_debts.table.show(editable=False) }     
-  - Edit: employees.there_are_any
-    button: | 
-      **Did ${decedent.name_full()} owe any employees?**  
-      ${word(yesno(employees.there_are_any))}
-  - Edit: employees.revisit
-    button: |
-      **Money Due to Employees**
-      ${ employees.table.show(editable=False) }     
-  - Edit: trust_property.there_are_any
-    button: | 
-      **Did ${decedent.name_full()} have any property in a trust?**  
-      ${word(yesno(trust_property.there_are_any))}
-  - Edit: trust_property.revisit
-    button: |
-      **Money or Property Held in Trust**
-      ${ trust_property.table.show(editable=False) }     
-  - Edit: illinois_debts.there_are_any
-    button: | 
-      **Did ${decedent.name_full()} any debts to the State of Illinois?**  
-      ${word(yesno(illinois_debts.there_are_any))}
-  - Edit: illinois_debts.revisit
-    button: |
-      **Debt Due to State of Illinois**
-      ${ illinois_debts.table.show(editable=False) }     
-  - Edit: other_claims.there_are_any
-    button: | 
-      **Are there any other claims against ${decedent.name_full()}’s estate?**  
-      ${word(yesno(other_claims.there_are_any))}
-  - Edit: other_claims.revisit
-    button: |
-      **Debt Due to State of Illinois**
-      ${ other_claims.table.show(editable=False) }     
-  # ABOUT YOU
-  - Edit: user_heir_check
-    button: | 
-      **Are you one of ${decedent.name_full()} heirs?**  
-      ${word(yesno(user_heir_check))}
-  - Edit: user_spouse
-    button: | 
-      **Are you ${spouse.name_full()} heirs?**  
-      ${word(yesno(user_spouse))}
-  # User name, address, mailing address
-  - Edit: agent_check
-    button: | 
-      **Do you want to name an agent for service of process or do you want to receive service of process yourself?**  
-      Agent:
-      % if agent_check == "yes":
-      * I want to name an agent
-      % else:
-      * I do not want to name an agent
-      % endif
-  # Agent name, address, phone number
----
-############# REVISITS ###########
-id: revisit decedent_assets
-continue button field: decedent_assets.revisit
-question: |
-  Edit your answers about Decedent Assets
-subquestion: |
-  ${ decedent_assets.table }
-  ${ decedent_assets.add_action() }
----
-id: revisit unpaid_funeral_expense
-continue button field: unpaid_funeral_expense.revisit
-question: |
-  Edit the unpaid funeral expenses
-subquestion: |
-  ${ unpaid_funeral_expense.table }
-  ${ unpaid_funeral_expense.add_action() }
----
-id: revisit us_debts
-continue button field: us_debts.revisit
-question: |
-  Edit the debts due to United States
-subquestion: |
-  ${ us_debts.table }
-  ${ us_debts.add_action() }
----
-id: revisit employees
-continue button field: employees.revisit
-question: |
-  Edit money due to employees
-subquestion: |
-  ${ employees.table }
-  ${ employees.add_action() }
----
-id: revisit trust_property
-continue button field: trust_property.revisit
-question: |
-  Edit the trust property details
-subquestion: |
-  ${ trust_property.table }
-  ${ trust_property.add_action() }
----
-id: revisit illinois_debts
-continue button field: illinois_debts.revisit
-question: |
-  Edit the debts to Illinois state
-subquestion: |
-  ${ illinois_debts.table }
-  ${ illinois_debts.add_action() }
----
-id: revisit other_claims
-continue button field: other_claims.revisit
-question: |
-  Edit the other claims
-subquestion: |
-  ${ other_claims.table }
-  ${ other_claims.add_action() }
----
-############# TABLES ###########
-id: decedent assets table
-table: decedent_assets.table
-rows: decedent_assets
-columns:
-  - Asset: |
-      row_item.name
-  - Description: |
-      row_item.description if hasattr(row_item, 'description') else ''
-  - Value: |
-      currency(row_item.value) if hasattr(row_item, 'value') else ''
-delete buttons: True
-confirm: True
----
-id: funeral expenses table
-table: unpaid_funeral_expense.table
-rows: unpaid_funeral_expense
-columns:
-  - Name: |
-      row_item.name
-  - Amount: |
-      currency(row_item.value) if hasattr(row_item, 'value') else ''
-delete buttons: True
-confirm: True
----
-id: us debts table
-table: us_debts.table
-rows: us_debts
-columns:
-  - Department: |
-      row_item.name
-  - Amount: |
-      currency(row_item.value) if hasattr(row_item, 'value') else ''
-delete buttons: True
-confirm: True
----
-id: employees table
-table: employees.table
-rows: employees
-columns:
-  - Employee: |
-      row_item.name
-  - Amount: |
-      currency(row_item.value) if hasattr(row_item, 'value') else ''
-delete buttons: True
-confirm: True
----
-id: trust property table
-table: trust_property.table
-rows: trust_property
-columns:
-  - Property: |
-      row_item.name
-  - Amount: |
-      currency(row_item.value) if hasattr(row_item, 'value') else ''
-delete buttons: True
-confirm: True
----
-id: illinois debts table
-table: illinois_debts.table
-rows: illinois_debts
-columns:
-  - Department/Agency: |
-      row_item.name
-  - Amount: |
-      currency(row_item.value) if hasattr(row_item, 'value') else ''
-delete buttons: True
-confirm: True
----
-id: other debts table
-table: other_claims.table
-rows: other_claims
-columns:
-  - Name: |
-      row_item.name
-  - Claim: |
-      row_item.description
-  - Amount: |
-      currency(row_item.value) if hasattr(row_item, 'value') else ''
-delete buttons: True
-confirm: True
----
-id: Edit heirs
-continue button field: heirs.revisit
-question: |
-  Edit any minor or adult dependent children
-subquestion: |
-  ${ heirs.table }
-  ${ heirs.add_action() }
----
-table: heirs.table
-rows: heirs
-columns:
-  - Name: |
-      row_item.name_full() if defined("row_item.name.first") else ""
-  - Relationship: |
-      row_item.relationship if defined("row_item.relationship") else ""
-  - Minor: |
-      row_item.child_minor if defined("row_item.child_minor") else ""
-  - Birthdate: |
-      row_item.birthdate if defined("row_item.birthdate") else ""
-  - Action: |
-      action_button_html(url_action(row_item.attr_name("row_item.relationship")), label="Edit", icon="pencil-alt")
-delete buttons: True
-confirm: True
----
-id: Edit all_recipients
-continue button field: all_recipients.revisit
-question: |
-  Edit any minor or adult dependent children
-subquestion: |
-  ${ all_recipients.table }
-  ${ all_recipients.add_action() }
----
-table: all_recipients.table
-rows: all_recipients
-columns:
-  - Name: |
-      row_item.name_full() if defined("row_item.name.first") else ""
-  - Relationship: |
-      row_item.relationship if defined("row_item.relationship") else ""
-  - Minor: |
-      row_item.child_minor if defined("row_item.child_minor") else ""
-  - Birthdate: |
-      row_item.birthdate if defined("row_item.birthdate") else ""
-  - Claim: |
-      row_item.description if defined("row_item.description") else ""
-  - Award: |
-      action_button_html(url_action(row_item.attr_name("row_item.award")), label="Edit", icon="pencil-alt")
-delete buttons: True
-confirm: True
+generic object: ALDocumentBundle
+template: x.send_email_template
+subject: |
+  Small estate affidavit forms
+content: |
+  Your forms are attached.
+  
+  Thanks for using ILAO Easy Forms!
+  
+  [Illinois Legal Aid Online](https://www.illinoislegalaid.org)
 ---
