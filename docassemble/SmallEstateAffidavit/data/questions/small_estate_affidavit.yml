@@ -87,6 +87,7 @@ code: |
   if decedent.was_married:
     spouse.name.first
     spouse.relationship = "Spouse"
+    spouse.flag = "spouse"
     if not spouse.still_alive:
       spouse_passed_kickout
     get_spouse_address(spouse, decedent)
@@ -105,8 +106,13 @@ code: |
     any_heirs_code
     if heirs.there_are_any:
       heirs.gather()
-    if residue_heirs.there_are_any:
-      residue_heirs.gather()
+    if residue_mentioned:
+      for person in collected_heirs:
+        if person.flag != "intestate" and person.flag != "residue":
+          if person.residue_check:
+            person.residue_numerator
+      if residue_heirs.there_are_any:
+        residue_heirs.gather()
     else:
       residue_intestate
       if not decedent.was_married and not dependents.there_are_any:
@@ -114,12 +120,12 @@ code: |
       elif intestate_heirs.there_are_any:
         intestate_heirs.gather()
       if decedent.was_married:
-        spouse_intestate_code
+        spouse_residue_intestate_code
       if dependents.there_are_any:
         for person in dependents:
-          person.numerator
+          person.residue_numerator
       for person in intestate_heirs:
-        person.numerator
+        person.residue_numerator
   else:
     about_intestacy
     if not decedent.was_married and not dependents.there_are_any:
@@ -206,6 +212,7 @@ code: |
 #dependent gather loop
 code: |
   dependents[i].name.first
+  dependents[i].flag = "dependent"
   dependents[i].relationship = "Child"
   dependents[i].birthdate
   get_dependent_address(dependents[i], decedent)
@@ -214,6 +221,7 @@ code: |
 #heirs gather loop
 code: |
   heirs[i].name.first
+  heirs[i].flag = "will"
   heirs[i].relationship
   heirs[i].birthdate
   heirs[i].address.address
@@ -223,7 +231,8 @@ code: |
 #residue_heirs gather loop
 code: |
   residue_heirs[i].name.first
-  residue_heirs[i].is_residue_heir = True
+  residue_heirs[i].flag = "residue"
+  residue_heirs[i].relationship
   residue_heirs[i].address.address
   residue_heirs[i].numerator
   residue_heirs[i].complete = True
@@ -231,6 +240,7 @@ code: |
 #intestate heirs gather loop
 code: |
   intestate_heirs[i].name.first
+  intestate_heirs[i].flag = "intestate"
   intestate_heirs[i].relationship
   intestate_heirs[i].birthdate
   intestate_heirs[i].address.address
@@ -272,6 +282,23 @@ code: |
 code: |
   other_debts[i].amount
   other_debts[i].complete = True
+---
+code: |
+  def share_value(person):
+    if have_a_will:
+      if residue_mentioned:
+        if person.flag == "residue":
+          return str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
+        elif person.residue_check:
+          return currency(person.amount_received) + ", and " + str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
+      elif person.flag == "spouse" or person.flag == "dependent":
+        return currency(person.amount_received) + ", and " + str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
+      elif person.flag == "intestate":
+        return str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
+      else:
+        return currency(person.amount_received)
+    else:
+      return str(person.numerator) + "/" + str(person.denominator) + " of the estate"
 ---
 code: |
   stuff_to_snapshot = {
@@ -906,6 +933,26 @@ fields:
     js show if: |
       val("heirs[i].relationship") == "Other"
 ---
+id: residue heir relationship
+question: |
+  What is ${residue_heirs[i].name_full()}'s relationship to ${decedent.name_full()}?
+fields:
+  - Relationship: residue_heirs[i].relationship
+    input type: radio
+    choices:
+      - Child
+      - Grandchild
+      - Parent
+      - Grandparent
+      - Sibling
+      - Niece
+      - Nephew
+      - Other
+  - ${residue_heirs[i].name_full()} is ${decedent.name_full()}'s...: residue_heirs[i].other_relationship
+    maxlength: 30
+    js show if: |
+      val("residue_heirs[i].relationship") == "Other"
+---
 id: heir birthdate
 question: |
   When was ${heirs[i].name_full()} born?
@@ -952,6 +999,15 @@ question: |
 subquestion: |
   **Residue** is anything left in the estate after debts are paid and inheritances are given away.
 fields:
+  - no label: residue_mentioned
+    datatype: yesnoradio
+---
+id: any residue
+question: |
+  Will anyone else get some of the estate's residue?
+subquestion: |
+  **Residue** is anything left in the estate after debts are paid and inheritances are given away.
+fields:
   - no label: residue_heirs.there_are_any
     datatype: yesnoradio
 ---
@@ -978,7 +1034,7 @@ sets:
   - residue_heirs[i].name.first
 id: residue heir name
 question: |
-  Who is the ${ordinal(i)} person who will inherit some of the residue?
+  Who is the ${ordinal(i)} other person who will inherit some of the residue?
 subquestion: |
   % if i == 0 and (have_a_will or user_is_ben):
   If this if you, please fill this out with your name. There will be more questions about you at the end of the interview.
@@ -987,17 +1043,26 @@ fields:
   code: |
     residue_heirs[i].name_fields()
 ---
-id: residue heir share
+generic object: ALIndividual
+id: x residue check
 question: |
-  What is ${residue_heirs[i].name_full()}'s share of the residue?
+  Will ${x.name_full()} inherit some of the residue?
+fields:
+  - no label: x.residue_check
+    datatype: yesnoradio
+---
+generic object: ALIndividual
+id: x residue share
+question: |
+  What is ${x.name_full()}'s share of the residue?
 subquestion: |
   You should enter their share as a fraction. For example, if they will get 50% of the estate, you should enter "1 / 2" below.
   
-  Share: [FIELD residue_heirs[i].numerator] / [FIELD residue_heirs[i].denominator]
+  Share: [FIELD x.residue_numerator] / [FIELD x.residue_denominator]
 fields:
-  - no label: residue_heirs[i].numerator
+  - no label: x.residue_numerator
     datatype: integer
-  - no label: residue_heirs[i].denominator
+  - no label: x.residue_denominator
     datatype: integer
 ---
 #Add a check to ensure the entered fractional shares add up to 1?
@@ -1155,6 +1220,20 @@ code: |
     spouse.denominator = 2
   spouse_intestate_code = True
 ---
+depends on:
+  - dependents.there_are_any
+  - intestate_heirs.there_are_any
+code: |
+  if not dependents.there_are_any and not intestate_heirs.there_are_any:
+    spouse_gets_all_residue
+    spouse.residue_numerator = 1
+    spouse.residue_denominator = 1
+  else: 
+    spouse_gets_half_residue
+    spouse.residue_numerator= 1
+    spouse.residue_denominator = 2
+  spouse_residue_intestate_code = True
+---
 id: spouse gets all
 continue button field: spouse_gets_all
 question: |
@@ -1162,12 +1241,26 @@ question: |
 subquestion: |
   Since ${decedent.name_full()} has no children or other descendents, ${spouse.name_full()} will inherit the entire estate.
 ---
+id: sposue gets all residue
+continue button field: spouse_gets_all_residue
+question: |
+  ${spouse.name_full()}'s share of the residue
+subquestion: |
+  Since ${decedent.name_full()} has no children or other descendents, ${spouse.name_full()} will inherit all of the residue.
+---
 id: spouse gets half
 continue button field: spouse_gets_half
 question: |
   ${spouse.name_full()}'s inheritance
 subquestion: |
   ${spouse.name_full()} will inherit half of the estate. ${decedent.name_full()}'s children and any other descendents will split the other half.
+---
+id: spouse gets half residue
+continue button field: spouse_gets_half_residue
+question: |
+  ${spouse.name_full()}'s share of the residue
+subquestion: |
+  ${spouse.name_full()} will inherit half of the residue. ${decedent.name_full()}'s children and any other descendents will split the other half.
 ---
 id: dependent intestate share
 question: |
@@ -1716,7 +1809,7 @@ question: |
 subquestion: |
   You will need to pay the estate's debts before you give the heirs their shares of the estate.
 
-  The estate's debt will need to be paid in order. This order is based on class of debt each one falls under. The debts you entered will be listed in order on the small estate affidavit.
+  The estate's debts will need to be paid in order. This order is based on class of debt each one falls under. The debts you entered will be listed in order on the small estate affidavit.
 
   ${collapse_template(class_list)}
 
