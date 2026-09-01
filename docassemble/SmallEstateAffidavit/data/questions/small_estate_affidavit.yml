@@ -16,11 +16,14 @@ objects:
   - spouse: ALIndividual
   - agent: ALIndividual
   - dependents: ALPeopleList.using(complete_attribute='complete')
-  - spouse_dependents: ALPeopleList.using(there_are_any=False, complete_attribute='complete')
-  - elsewhere_dependents: ALPeopleList.using(there_are_any=False, complete_attribute='complete')
+  - spouse_and_dependents: ALPeopleList.using(there_are_any=False, complete_attribute='complete', there_is_another=False)
+  - spouse_dependents: ALPeopleList.using(there_are_any=False, complete_attribute='complete', there_is_another=False)
+  - elsewhere_dependents: ALPeopleList.using(there_are_any=False, complete_attribute='complete', there_is_another=False)
+  - award_recipients: ALPeopleList.using(there_are_any=False, complete_attribute='complete', there_is_another=False)
   - heirs: ALPeopleList.using(complete_attribute='complete')
   - residue_heirs: ALPeopleList.using(complete_attribute='complete')
   - intestate_heirs: ALPeopleList.using(complete_attribute='complete')
+  - collected_heirs: ALPeopleList.using(there_are_any=False, complete_attribute='complete', there_is_another=False)
   - assets: DAList.using(object_type=Thing, complete_attribute='complete', there_are_any=True)
   - trust_property: DAList.using(object_type=Thing, complete_attribute='complete')
   - funeral_debts: ALPeopleList.using(complete_attribute='complete')
@@ -83,6 +86,7 @@ code: |
   nav.set_section('section_heirs')
   if decedent.was_married:
     spouse.name.first
+    spouse.relationship = "Spouse"
     if not spouse.still_alive:
       spouse_passed_kickout
     get_spouse_address(spouse, decedent)
@@ -177,10 +181,11 @@ code: |
   about_paying_debts
 
   nav.set_section('section_user')
-  if have_a_will:
-    users[0].name.first
-  elif user_is_ben:
+  if have_a_will or user_is_ben:
     users[0].who
+    if have_a_will and users[0].who == "I am someone else.":
+      users[0].name.first
+      users[0].relationship
   else:
     users[0].rep_who
     users[0].name.first
@@ -194,12 +199,14 @@ code: |
 
   nav.set_section('section_download')
   forms_assembling
+  make_collected_heirs
   snapshot_forms
   get_docs_screen
 ---
 #dependent gather loop
 code: |
   dependents[i].name.first
+  dependents[i].relationship = "Child"
   dependents[i].birthdate
   get_dependent_address(dependents[i], decedent)
   dependents[i].complete = True
@@ -216,6 +223,7 @@ code: |
 #residue_heirs gather loop
 code: |
   residue_heirs[i].name.first
+  residue_heirs[i].is_residue_heir = True
   residue_heirs[i].address.address
   residue_heirs[i].numerator
   residue_heirs[i].complete = True
@@ -227,11 +235,6 @@ code: |
   intestate_heirs[i].birthdate
   intestate_heirs[i].address.address
   intestate_heirs[i].complete = True
----
-id: debug assets loop
-continue button field: debug_assets_loop
-question: |
-  Hi!
 ---
 #assets gather loop
 code: |
@@ -633,7 +636,7 @@ id: spouse still alive
 question: |
   Is ${spouse.name_full()} alive?
 subquestion: |
-  You can use this prgoram if ${spouse.name_full()} is alive.
+  You can use this program if ${spouse.name_full()} is alive.
 
   Earlier, you said that ${decedent.name_full()} was married when they died. If ${spouse.name_full()} died before ${decedent.name_full()} died, you should click the **Heirs** or **:edit: Edit answers** button to change your answer to say that ${decedent.name_full()} was not married. 
 fields:
@@ -749,6 +752,10 @@ fields:
 id: have dependents passed
 question: |
   Have any of ${decedent.name_full()}'s dependent children died since ${decedent.name_full()}'s death?
+subquestion: |
+  You can use this program if ${decedent.name_full()}'s dependents are alive.
+
+  Earlier, you said that ${decedent.name_full()} had dependents when they died. If ${decedent.name_full()}'s dependents all died before ${decedent.name_full()} died, you should click the Heirs or Edit answers button to change your answer to say that ${decedent.name_full()} did not have dependents.
 fields:
   - no label: have_dependents_passed
     datatype: yesnoradio
@@ -1164,7 +1171,11 @@ subquestion: |
 ---
 id: dependent intestate share
 question: |
+  % if have_a_will:
+  What fraction of the residue will go to ${dependents[i].name_full()}?
+  % else:
   What fraction of the estate will go to ${dependents[i].name_full()}?
+  % endif
 subquestion: |
   ${collapse_template(intestacy_help)}
 
@@ -1541,6 +1552,8 @@ question: |
 fields:
   - Amount owed: other_debts[i].amount
     datatype: currency
+  - Description: other_debts[i].description
+    input type: area
   - Claimant name: other_debts[i].name.first
   - Street address: other_debts[i].address.address
     address autocomplete: True
@@ -1733,9 +1746,17 @@ code: |
   if have_a_will and heirs.there_are_any:
     for person in heirs:
       user_who_choices.append(person.name_full())
+    if residue_heirs.there_are_any:
+      for person in residue_heirs:
+        user_who_choices.append(person.name_full())
+    if intestate_heirs.there_are_any:
+      for person in intestate_heirs:
+        user_who_choices.append(person.name_full())
   if not have_a_will and intestate_heirs.there_are_any:
     for person in intestate_heirs:
       user_who_choices.append(person.name_full())
+  if have_a_will:
+    user_who_choices.append("I am someone else.")
 ---
 id: user who
 question: |
@@ -1753,12 +1774,40 @@ question: |
 subquestion: |
   Earlier you said you were a representative or fiduciary of one of ${decedent.name_full()}'s heirs.
 fields: 
-  - "I reprsent...": users[0].rep_who
+  - "I represent...": users[0].rep_who
     input type: radio
     choices:
       code: |
         user_who_choices
+  - "I am their...": users[0].rep_or_fid
+    input type: radio
+    choices:
+      - Representative: representative
+      - Fiduciary: fiduciary
 ---
+id: user relationship
+question: |
+  What is your relationship to ${decedent.name_full()}?
+fields:
+  - Relationship: users[0].relationship
+    input type: radio
+    choices:
+      - Spouse
+      - Child
+      - Grandchild
+      - Parent
+      - Grandparent
+      - Sibling
+      - Niece
+      - Nephew
+      - Other
+  - I am ${decedent.name_full()}'s...: users[0].other_relationship
+    maxlength: 30
+    js show if: |
+      val('users[0].relationship') == "Other"
+---
+sets:
+  - users[0].name.first
 id: user name
 question: |
   What is your name?
@@ -1780,6 +1829,20 @@ fields:
       states_list()
     default: IL
   - ZIP code: users[0].address.zip
+---
+code: |
+  def return_user_name(person):
+    if have_a_will or user_is_ben:
+      if person.who == "I am someone else.":
+        return person.name_full()
+      return person.who
+    return person.name_full()
+---
+code: |
+  def return_user_relationship(person):
+    if not have_a_will and not user_is_ben:
+      return (person.rep_or_fid + " of " + person.rep_who)
+    return person.relationship
 ---
 id: name an agent
 question: |
@@ -1884,6 +1947,42 @@ under: |
   &nbsp;
   ${ action_button_html(interview_url(i="docassemble.ILAO:feedback.yml", easy_form_interview=ilao_easy_form_url, easy_form_title=ilao_easy_form_title, easy_form_page=current_context().question_id, easy_form_variable=current_context().variable, local=False,reset=1), label=':comment: Was this program helpful?', color="#181c36", size="md", new_window=True) }
 ---
+#The template is seeking spouse.complete?
+code: |
+  spouse.complete = True
+---
+reconsider: True
+code: |
+  collected_heirs.clear()
+  spouse_and_dependents.clear()
+  award_recipients.clear()
+  if decedent.was_married:
+    collected_heirs.append(spouse)
+    spouse_and_dependents.append(spouse)
+    award_recipients.append(spouse)
+  if dependents.there_are_any:
+    for dependent in dependents:
+      collected_heirs.append(dependent)
+      spouse_and_dependents.append(dependent)
+      if not child_with_spouse(dependent):
+        award_recipients.append(dependent)
+  if have_a_will:
+    if heirs.there_are_any:
+      for heir in heirs:
+        collected_heirs.append(heir)
+    if residue_heirs.there_are_any:
+      for heir in residue_heirs:
+        collected_heirs.append(heir)
+    else:
+      if (not decedent.was_married and not dependents.there_are_any) or intestate_heirs.there_are_any:
+        for heir in intestate_heirs:
+          collected_heirs.append(heir)
+  else:
+    if intestate_heirs.there_are_any:
+      for heir in intestate_heirs:
+        collected_heirs.append(heir)
+  make_collected_heirs = True
+---
 generic object: ALDocumentBundle
 template: x.send_email_template
 subject: |
@@ -1894,4 +1993,646 @@ content: |
   Thanks for using ILAO Easy Forms!
   
   [Illinois Legal Aid Online](https://www.illinoislegalaid.org)
+---
+objects:
+  - al_user_bundle: ALDocumentBundle.using(elements= [instructions, affidavit], filename="request_to_return_property_in_repossessed_par.pdf", title="All forms")
+---
+objects:
+  - instructions: ALDocument.using(title="Instructions", filename="instructions.pdf", has_addendum=False)
+  - affidavit: ALDocument.using(title="Small estate affidavit", filename="small_estate_affidavit.pdf", has_addendum=False)
+---
+code: |
+  instructions.enabled = True
+  affidavit.enabled = True
+---
+attachment:
+  - name: instructions
+    variable name: instructions[i]
+    filename: instructions
+    docx template file: instructions_sea.docx
+---
+attachment:
+  - name: affidavit
+    variable name: affidavit[i]
+    filename: affidavit
+    docx template file: small_estate_affidavit.docx
+---
+id: review_screen
+event: review_answers
+question: |
+  Edit your answers below
+review:
+  - note: |
+      <h4>About the estate</h4>
+  - Edit: have_a_will
+    button: |
+      **Did the person who died leave a will?**
+
+      ${ word(yesno(have_a_will)) if defined('have_a_will') else '' }
+  - Edit: will_filed
+    button: |
+      **Has the will been filed with the court clerk?**
+
+      ${ word(yesno(will_filed)) if defined('will_filed') else '' }
+    show if: have_a_will
+  - Edit: user_is_executor
+    button: |
+      **Are you the executor of the will?**
+
+      ${ word(yesno(user_is_executor)) if defined('user_is_executor') else '' }
+    show if: have_a_will
+  - Edit: user_is_ben
+    button: |
+      **Are you a beneficiary of the decedent's estate?**
+
+      ${ word(yesno(user_is_ben)) if defined('user_is_ben') else '' }
+    show if: not have_a_will
+  - Edit: user_is_fid
+    button: |
+      **Are you a representative or fiduciary of one of the decedent's beneficiaries?**
+
+      ${ word(yesno(user_is_fid)) if defined('user_is_fid') else '' }
+    show if: not have_a_will and not user_is_ben
+  - Edit: decedent.name.first
+    button: |
+      **What is the name of the person who died?**
+
+      ${ decedent if defined('decedent.name.first') else '' }
+  - Edit: death_date
+    button: |
+      **When did ${decedent.name_full()} die?**
+
+      ${ showifdef('death_date') }
+  - Edit: decedent.address.address
+    button: |
+      **Where was ${decedent.name_full()} living when they died?**
+
+      ${decedent.address.on_one_line(bare=True)}
+  - note: |
+      <h4>Heirs</h4>
+  - Edit: decedent.was_married
+    button: |
+      **Was ${decedent.name_full()} married when they died?**
+
+      ${ word(yesno(decedent.was_married)) if defined('decedent.was_married') else '' }
+  - Edit: spouse.name.first
+    button: |
+      **What is the name of ${decedent.name_full()}'s spouse?**
+
+      ${ spouse if defined('spouse.name.first') else '' }
+    show if: decedent.was_married
+  - Edit: spouse.still_alive
+    button: |
+      **Is ${spouse.name_full()} alive?**
+
+      ${ word(yesno(spouse.still_alive)) if defined('spouse.still_alive') else '' }
+    show if: decedent.was_married
+  - Edit: 
+      - spouse.lives_with_decedent
+      - recompute:
+          - spouse.address.address
+    button: |
+      **Did ${spouse.name_full()} live with ${decedent.name_full()}?
+      ${word(yesno())}
+    show if: decedent.was_married
+  - Edit: spouse.address.adress
+    button: |
+      **${spouse.name_full()}'s address:**
+      ${spouse.address.on_one_line(bare=True)}
+    show if: decedent.was_married
+  - Edit: dependents.there_are_any
+    button: |
+      **Did ${decedent.name_full()} have any dependents?**
+      ${word(yesno(dependents.there_are_any))}
+  - Edit: have_dependents_passed
+    button: |
+      **Have any of ${decedent.name_full()}'s dependent children died since ${decedent.name_full()}'s death?**
+
+      ${ word(yesno(have_dependents_passed)) if defined('have_dependents_passed') else '' }
+  - Edit: dependents.revisit
+    button: |-
+      **Minor children and adult dependent children:**
+
+      % for item in dependents:
+      - ${ item }
+      % endfor
+    show if: dependents.there_are_any
+  - Edit: spouse_decedent_in_will
+    button: |
+      <strong>
+      % if decedent.was_married and dependents.there_are_any:
+      Are ${comma_and_list(spouse, dependents)} named in the will?
+      % elif decedent.was_married:
+      Is ${spouse.name_full()} named in the will?
+      % elif dependents.number_gathered() == 1:
+      Is ${dependents[0].name_full()} named in the will?
+      % else:
+      Are ${dependents.full_names()} named in the will?
+      % endif
+      </strong>
+
+      ${ word(yesno(spouse_decedent_in_will)) if defined('spouse_decedent_in_will') else '' }
+    show if: have_a_will
+  - Edit: heirs.there_are_any
+    button: |
+      **Did ${decedent.name_full()} name anyone else in their will?**
+      ${word(yesno(heirs.there_are_any))}
+    show if: have_a_will and (decedent.was_married or dependents.there_are_any)   
+  - Edit: heirs.revisit
+    button: |
+      % if dependents.there_are_any:
+      **Other children:**
+      % elif decedent.was_married:
+      **Children**
+      % else:
+      **Other heirs:**
+      % endif
+
+      % for item in heirs:
+      - ${ item }
+      % endfor
+    show if: have_a_will and ((not decedent.was_married and not dependents.there_are_any) or heirs.there_are_any)
+  - Edit: residue_heirs.there_are_any
+    button: |
+      **Does the will say who get the estate's residue?**
+
+      ${ word(yesno(residue_heirs.there_are_any)) if defined('residue_heirs.there_are_any') else '' }
+  - Edit: residue_heirs.revisit
+    button: |
+      **Residue heirs:**
+
+      % for item in residue_heirs:
+      - ${ item }
+      % endfor
+    show if: have_a_will and residue_heirs.there_are_any
+  - Edit: intestate_heirs.there_are_any
+    button: |
+      <strong>
+      % if dependents.there_are_any:
+      Did ${decedent.name_full()} have any other children?
+      % else: 
+      Did ${decedent.name_full()} have any children?
+      % endif
+      </strong>
+
+      ${ word(yesno(intestate_heirs.there_are_any)) if defined('intestate_heirs.there_are_any') else '' }
+    show if: not have_a_will and (decedent.was_married or dependents.there_are_any)
+  - Edit: intestate_heirs.revisit
+    button: |
+      % if have_a_will:
+      **Residue heirs:**
+      % else:
+      **Heirs:**
+      % endif
+
+      % for item in intestate_heirs:
+      - ${ item }
+      % endfor
+    show if: (not have_a_will and ((not decedent.was_married and not dependents.there_are_any) or intestate_heirs.there_are_any)) or (have_a_will and not residue_heirs.there_are_any)
+  - note: |
+      <h4>Assets</h4>
+  - Edit: assets.revisit
+    button: |-
+      **Assets:**
+
+      % for item in assets:
+      - ${ item }
+      % endfor
+  - Edit: unclaimed_property
+    button: |
+      **Do you think the Illinois Treasurer's office might have some of ${decedent.name_full()}'s property?**
+
+      ${ word(yesno(unclaimed_property)) if defined('unclaimed_property') else '' }
+  - note: |
+      <h4>Debts</h4>
+  - Edit: funeral_debts.there_are_any
+    button: |
+      **Does ${decedent.name_full()} have any unpaid funeral or burial expenses?**
+
+      ${ word(yesno(funeral_debts.there_are_any)) if defined('funeral_debts.there_are_any') else '' }
+  - Edit: funeral_debts.revisit
+    button: |-
+      **Funeral Debts:**
+
+      % for item in funeral_debts:
+      - ${ item }
+      % endfor
+  - Edit: spouse.award
+    button: |
+      **How much should ${spouse.name_full()} be awarded?**
+
+      ${ currency(spouse.award) if defined('spouse.award') else '' }
+  - Edit: trust_property.there_are_any
+    button: |
+      **Did ${decedent.name_full()} have money or property received or held in trust that cannot be identified or traced?**
+
+      ${ word(yesno(trust_property.there_are_any)) if defined('trust_property.there_are_any') else '' }
+  - Edit: trust_property.revisit
+    button: |-
+      **Trust Property:**
+
+      % for item in trust_property:
+      - ${ item }
+      % endfor
+  - Edit: us_debts.there_are_any
+    button: |
+      **Does ${decedent.name_full()} have any unpaid debts owed to the United States?**
+
+      ${ word(yesno(us_debts.there_are_any)) if defined('us_debts.there_are_any') else '' }
+  - Edit: us_debts.revisit
+    button: |-
+      **Us Debts:**
+
+      % for item in us_debts:
+      - ${ item }
+      % endfor
+  - Edit: employee_debts.there_are_any
+    button: |
+      **Does ${decedent.name_full()} owe $800 or less to an employee for end-of-life services?**
+
+      ${ word(yesno(employee_debts.there_are_any)) if defined('employee_debts.there_are_any') else '' }
+  - Edit: employee_debts.revisit
+    button: |-
+      **Employee Debts:**
+
+      % for item in employee_debts:
+      - ${ item }
+      % endfor
+  - Edit: illinois_debts.there_are_any
+    button: |
+      **Does ${decedent.name_full()} have any debts to Illinois?**
+
+      ${ word(yesno(illinois_debts.there_are_any)) if defined('illinois_debts.there_are_any') else '' }
+  - Edit: illinois_debts.revisit
+    button: |-
+      **Illinois Debts:**
+
+      % for item in illinois_debts:
+      - ${ item }
+      % endfor
+  - Edit: other_debts.there_are_any
+    button: |
+      **Are there any other claims against ${decedent.name_full()}'s estate?**
+
+      ${ word(yesno(other_debts.there_are_any)) if defined('other_debts.there_are_any') else '' }
+  - Edit: other_debts.revisit
+    button: |-
+      **Other Debts:**
+
+      % for item in other_debts:
+      - ${ item }
+      % endfor 
+  - note: |
+      <h4>About you</h4>
+  - Edit: users[0].who
+    button: |
+      **Who are you?**
+      %  if have_a_will and users[0].who == "I am someone else.":
+      ${users[0].name_full()}
+      % else:
+      ${ showifdef('users[0].who') }
+      % endif
+    show if: have_a_will or user_is_ben
+  - Edit: users[0].rep_who
+    button: |
+      **Who do you represent?**
+
+      ${ showifdef('users[0].rep_who') }
+    show if: not have_a_will and not user_is_ben and user_is_fid
+  - Edit: users[0].name.first
+    button: |
+      **Your name:**
+      ${ users[0] if defined('users[0].name.first') else '' }
+    show if:  have_a_will and users[0].who == "I am someone else."
+  - Edit: users[0].address.address
+    button: |
+      **Your address:**
+      ${users[0].address.on_one_line(bare=True)}
+  - Edit: name_an_agent
+    button: |
+      **Do you want to name an agent for service of process?**
+      ${ word(yesno(name_an_agent)) if defined('name_an_agent') else '' }
+  - Edit: agent.name.first
+    button: |
+      **What is the name of the agent for service of process?**
+
+      ${ agent if defined('agent.name.first') else '' }
+    show if: name_an_agent
+  - Edit: agent.address.address
+    button: |
+      **${agent.name_full()}'s address:**
+      ${agent.address.on_one_line(bare=True)}
+  - Edit: agent.phone_number
+    button: |
+      **${agent.name_full()}'s phone number:**
+      ${ phone_number_formatted(agent.phone_number) }
+    show if: name_an_agent
+---
+id: revisit dependents
+continue button field: dependents.revisit
+question: Edit dependents
+subquestion: |-
+  ${dependents.table}
+
+  ${dependents.add_action()}
+---
+id: revisit heirs
+continue button field: heirs.revisit
+question: Edit heirs
+subquestion: |-
+  ${heirs.table}
+
+  ${heirs.add_action()}
+---
+id: revisit residue_heirs
+continue button field: residue_heirs.revisit
+question: Edit residue heirs
+subquestion: |-
+  ${residue_heirs.table}
+
+  ${residue_heirs.add_action()}
+---
+id: revisit intestate_heirs
+continue button field: intestate_heirs.revisit
+question: Edit heirs
+subquestion: |-
+  ${intestate_heirs.table}
+
+  ${intestate_heirs.add_action()}
+---
+id: revisit assets
+continue button field: assets.revisit
+question: Edit your answers about Assets
+subquestion: |-
+  ${assets.table}
+
+  ${assets.add_action()}
+---
+id: revisit trust_property
+continue button field: trust_property.revisit
+question: Edit your answers about Trust Property
+subquestion: |-
+  ${trust_property.table}
+
+  ${trust_property.add_action()}
+---
+id: revisit funeral_debts
+continue button field: funeral_debts.revisit
+question: Edit your answers about Funeral Debts
+subquestion: |-
+  ${funeral_debts.table}
+
+  ${funeral_debts.add_action()}
+---
+id: revisit us_debts
+continue button field: us_debts.revisit
+question: Edit your answers about Us Debts
+subquestion: |-
+  ${us_debts.table}
+
+  ${us_debts.add_action()}
+---
+id: revisit employee_debts
+continue button field: employee_debts.revisit
+question: Edit your answers about Employee Debts
+subquestion: |-
+  ${employee_debts.table}
+
+  ${employee_debts.add_action()}
+---
+id: revisit illinois_debts
+continue button field: illinois_debts.revisit
+question: Edit your answers about Illinois Debts
+subquestion: |-
+  ${illinois_debts.table}
+
+  ${illinois_debts.add_action()}
+---
+id: revisit other_debts
+continue button field: other_debts.revisit
+question: Edit your answers about Other Debts
+subquestion: |-
+  ${other_debts.table}
+
+  ${other_debts.add_action()}
+---
+table: dependents.table
+rows: dependents
+columns:
+  - Name: |
+      row_item.name_full() if defined("row_item.name.first") else ""
+edit:
+  - review_dependents
+---
+id: dependent review screen
+continue button field: x.review_dependents
+generic object: ALIndividual
+question: |
+  Edit ${x.name_full()}'s information
+review:
+  - Edit: x.name.first
+    button: |
+      **Name:**
+      ${x.name_full()}
+  - Edit: x.birthdate
+    button: |
+      **Birth date:**
+      ${x.birthdate}
+  - Edit: x.lives_with_decedent
+    button: |
+      **Did ${x.name_full()} live with ${decedent.name_full()}?**
+      ${word(yesno(x.lives_with_decedent))}
+  - Edit: x.lives_with_spouse
+    button: |
+      **Does ${x.name_full()} live with ${spouse.name_full()}?**
+      ${word(yesno(x.lives_with_spouse))}
+    show if: not x.lives_with_decedent and decedent.was_married and not spouse.lives_with_decedent
+  - Edit: x.address
+    button: |
+      **${x.name_full()}'s address:**
+      ${x.address.on_one_line(bare=True)}
+    show if: not x.lives_with_decedent and (not decedent.was_married or spouse.lives_with_decedent or not x.lives_with_spouse)     
+  - Edit: x.amount_received
+    button: |
+      **How much does ${x.name_full()} inherit under the will?**
+      ${currency(x.amount_received)}
+    show if: have_a_will
+  - Edit: x.numerator
+    button: |
+      **What fraction of the residue will go to ${x.name_full()}?**
+      ${x.numerator}/${x.denominator}
+    show if: have_a_will
+  - Edit: x.numerator
+    button: |
+      **What fraction of the estate will go to ${x.name_full()}?**
+      ${x.numerator}/${x.denominator}
+    show if: not have_a_will
+  - Edit: x.award
+    button: |
+      **How much should ${x.name_full()} be awarded?**
+      ${currency(x.award)}
+---
+table: heirs.table
+rows: heirs
+columns:
+  - name: |
+      row_item.name_full() if defined("row_item.name.first") else ""
+edit:
+  - review_heirs
+---
+id: heir review screen
+continue button field: x.review_heirs
+generic object: ALIndividual
+question: |
+  Edit ${x.name_full()}'s information
+review:
+  - Edit: x.name.first
+    button: |
+      **Name:**
+      ${x.name_full()}
+  - Edit: x.relationship
+    button: |
+      **${x.name_full()}'s relationship to ${decedent.name_full()}:**
+      % if x.relationship == "Other":
+      ${x.other_relationship}
+      % else:
+      ${x.relationship}
+      % endif
+  - Edit: x.birthdate
+    button: |
+      **${x.name_full()}'s birthdate:**
+      ${x.birthdate}
+  - Edit: x.address
+    button: |
+      **${x.name_full()}'s address:**
+      ${x.address.on_one_line(bare=True)}  
+  - Edit: x.amount_received
+    button: |
+      **How much does ${x.name_full()} inherit under the will?**
+      ${currency(x.amount_received)}
+---
+table: residue_heirs.table
+rows: residue_heirs
+columns:
+  - name: |
+      row_item.name_full() if defined("row_item.name.first") else ""
+edit:
+  - review_residue_heirs
+---
+id: residue heir review screen
+continue button field: x.review_residue_heirs
+generic object: ALIndividual
+question: |
+  Edit ${x.name_full()}'s information
+review:
+  - Edit: x.name.first
+    button: |
+      **Name:**
+      ${x.name_full()}
+  - Edit: x.address
+    button: |
+      **${x.name_full()}'s address:**
+      ${x.address.on_one_line(bare=True)} 
+  - Edit: x.numerator
+    button: |
+      **What fraction of the residue will go to ${x.name_full()}?**
+      ${x.numerator}/${x.denominator}
+---
+table: intestate_heirs.table
+rows: intestate_heirs
+columns:
+  - name: |
+      row_item.name_full() if defined("row_item.name.first") else ""
+edit:
+  - review_intestate_heirs
+---
+id: intestate heir review screen
+continue button field: x.review_intestate_heirs
+generic object: ALIndividual
+question: |
+  Edit ${x.name_full()}'s information
+review:
+  - Edit: x.name.first
+    button: |
+      **Name:**
+      ${x.name_full()}
+  - Edit: x.relationship
+    button: |
+      **${x.name_full()}'s relationship to ${decedent.name_full()}:**
+      % if x.relationship == "Other":
+      ${x.other_relationship}
+      % else:
+      ${x.relationship}
+      % endif
+  - Edit: x.address.address
+    button: |
+      **${x.name_full()}'s address:**
+      ${x.address.on_one_line(bare=True)} 
+  - Edit: x.numerator
+    button: |
+      **What fraction of the estate will go to ${x.name_full()}?**
+      ${x.numerator}/${x.denominator}
+---
+table: assets.table
+rows: assets
+columns:
+  - "Type of asset": row_item.type if hasattr(row_item, 'type') else ''
+  - "Description": row_item.name.text if hasattr(row_item, 'type') else ''
+  - "Value": row_item.value if hasattr(row_item, 'type') else ''
+edit:
+  - type
+---
+table: trust_property.table
+rows: trust_property
+columns:
+  - Property: row_item.text if hasattr(row_item, 'text') else ''
+  - Value: currency(row_item.value) if hasattr(row_item, 'text') else ''
+edit:
+  - value
+---
+table: funeral_debts.table
+rows: funeral_debts
+columns:
+  - Creditor name: row_item.name.first if defined('row_item.name.first') else ''
+  - Address: row_item.address.on_one_line(bare=True) if defined('row_item.name.first') else ''
+  - Amount owed: currency(row_item.amount) if defined('row_item.name.first') else ''
+edit:
+  - name.first
+---
+table: us_debts.table
+rows: us_debts
+columns:
+  - Agency or department: row_item.name.first if defined('row_item.name.first') else ''
+  - Address: row_item.address.on_one_line(bare=True) if defined('row_item.name.first') else ''
+  - Amount owed: currency(row_item.amount) if defined('row_item.name.first') else ''
+edit:
+  - name.first
+---
+table: employee_debts.table
+rows: employee_debts
+columns:
+  - "Employee name": row_item.name.first if defined('row_item.name.first') else ''
+  - Street address: row_item.address.on_one_line(bare=True) if defined('row_item.name.first') else ''
+  - Amount owed: currency(row_item.amount) if defined('row_item.name.first') else ''
+edit:
+  - name.first
+---
+table: illinois_debts.table
+rows: illinois_debts
+columns:
+  - "Agency or department": row_item.name.first if defined('row_item.name.first') else ''
+  - Street address: row_item.address.on_one_line(bare=True) if defined('row_item.name.first') else ''
+  - Amount owed: currency(row_item.amount) if defined('row_item.name.first') else ''
+edit:
+  - name.first
+---
+table: other_debts.table
+rows: other_debts
+columns:
+  - "Claimant name": row_item.name.first if defined('row_item.name.first') else ''
+  - Address: row_item.address.on_one_line(bare=True) if defined('row_item.name.first') else ''
+  - Amount owed: currency(row_item.amount) if defined('row_item.name.first') else ''
+  - Description: row_item.description if defined('row_item.name.first') else ''
+edit:
+  - name.first
 ---
