@@ -12,6 +12,7 @@ include:
 ---
 objects:
   - users: ALPeopleList.using(there_are_any=True, complete_attribute='complete')
+  - users[0].address: ALAddress
   - decedent: ALIndividual
   - spouse: ALIndividual
   - agent: ALIndividual
@@ -31,6 +32,10 @@ objects:
   - employee_debts: ALPeopleList.using(complete_attribute='complete')
   - illinois_debts: ALPeopleList.using(complete_attribute='complete')
   - other_debts: ALPeopleList.using(complete_attribute='complete')
+  - other_and_extra_employee_debts: ALPeopleList.using(there_are_any=False, complete_attribute='complete', there_is_another=False)
+---
+objects:
+  - table_image: DAFile
 ---
 code: |
   al_form_type = 'starts_case'
@@ -210,12 +215,16 @@ code: |
   if have_a_will or user_is_ben:
     make_collected_heirs
     users[0].who
+    if users[0].who != "I am someone else.":
+      copy_address_to_user
     if have_a_will and users[0].who == "I am someone else.":
       users[0].name.first
+      users[0].address.address
       users[0].relationship
   else:
     users[0].rep_who
     users[0].name.first
+    users[0].address.address
   if agent_needed(users[0]):
     agent.name.first
     agent.address.address
@@ -227,6 +236,7 @@ code: |
   nav.set_section('section_download')
   set_progress(100)
   forms_assembling
+  include_other_debts
   make_collected_heirs
   snapshot_forms
   get_docs_screen
@@ -344,7 +354,7 @@ code: |
     pass
 
   try:
-    stuff_to_snapshot['user_relation_to_decedent'] =  return_user_relationship(person)
+    stuff_to_snapshot['user_relation_to_decedent'] =  return_user_relationship(users[0])
   except:
     pass
 
@@ -380,7 +390,7 @@ question: |
 subquestion: |
   Welcome to Illinois Legal Aid Online's **Small estate affidavit** Easy Form.
 
-  This program will help you make a small estate affidavit. You can use it if you want to transfer someone's personal property after they die without going to court.
+  This program will help you make a small estate affidavit. You can use it if you want to transfer someone's personal property without going to court after they die.
 
   To learn more, read ILAO's guide on [**Transferring property with a small estate affidavit basics**](https://www.illinoislegalaid.org/node/31841).
 field: sees_nav_bar
@@ -490,16 +500,19 @@ id: warning page
 continue button field: warning_page
 question: |
   Note about small estate affidavits
-subquestion: |
-  **Warning:** If you use a small estate affidavit incorrectly, you may be personally liable for any losses you cause. This means you could be sued if you forget to include an heir, if you don't list all the estate's property in the affidavit, or if you don't pay one of the estate's debts.
-  
+subquestion: |  
   You should only use a small estate affidavit if you have the legal right to do so, and you should make sure that all information in the small estate affidavit is correct.
+
+  <div class="alert alert-info ilao-info" role="alert">
+    <h6 class="alert-heading">Warning</h6>
+    <p>If you use a small estate affidavit incorrectly, you may be personally liable for any losses you cause. This means you could be sued if you forget to include an heir, if you don't list all the estate's property in the affidavit, or if you don't pay one of the estate's debts.</p>
+  </div>
 ---
 id: any real estate
 question: |
   Did the decedent own any real estate?
 subquestion: |
-  "Real estate," also called "real property," means land or buildings, like a house or an apartment.
+  Real estate, also called real property, means land or buildings, like a house or an apartment.
 
   If the decedent did not own real estate when they died, click **No**.
 fields:
@@ -593,11 +606,11 @@ id: will filed
 question: |
   Has the will been filed with the court clerk of the county where the decedent lived?
 subquestion: |
-  If you click **Yes**, the small estate affidavit will include the following statement:
+  The will has to be filed with the court clerk after the decedent's death. If the will has not been filed yet, you can contact the court clerk to learn how to file it. Court clerks usually allow you to file the will in person or by mail.
+  
+  ${collapse_template(included_statement)}
 
-  "The decedent left a will, which has been filed with the clerk of an appropriate court. A certified copy of the will on file is attached. To the best of my knowledge and belief the will on file is the decedent's last will and was signed by the decedent and the attesting witnesses as required by law and would be admittable to probate. The names and places of residence of the legatees and the portion of the estate, if any, to which each legatee is entitled are as follows . . ."
-
-   This paragraph says the will has been filed correctly and that you are including a copy of it. It says you think this is the decedent's last will and it is correct and legal.
+   This paragraph says the will has been filed correctly and that you are including a copy of it. By including the paragraph, you are saying you think this is the decedent's correct, legal, and last will. The "legatees" are the heirs of the estate. 
 
   If you are not sure if the information contained in the above paragraph is true, you may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
 fields:
@@ -606,6 +619,12 @@ fields:
   - Was the will filed within 30 days of the decedent's death?: prompt_file
     datatype: yesnoradio
     show if: will_filed
+---
+template: included_statement
+subject: |
+  **If you click Yes, the small estate affidavit will include this statement:**
+content: |
+  "The decedent left a will, which has been filed with the clerk of an appropriate court. A certified copy of the will on file is attached. To the best of my knowledge and belief the will on file is the decedent's last will and was signed by the decedent and the attesting witnesses as required by law and would be admittable to probate. The names and places of residence of the legatees and the portion of the estate, if any, to which each legatee is entitled are as follows . . ."
 ---
 id: not filed kickout
 event: not_filed_kickout
@@ -670,11 +689,11 @@ template: family_bens_help
 subject: |
   **About which family members are closest**
 content: |
-  The decedent's closest family members will be their beneficiaries. If the decedent had a spouse or children, they are the beneficiaries. If one of their children had children of their own and then died, those grandchildren are also beneficiaries.
+  A decedent's closest family members will be their beneficiaries. If a decedent had a spouse or children, they are the beneficiaries. When a decedent's child dies before the decedent after having children of their own, those grandchildren are also beneficiaries.
 
-  If the decedent did not have a spouse or children, their parents and siblings are their beneficiaries. If one of their siblings had children and then died, those children are also beneficiaries.
+  When a decedent does not have a spouse or children, their parents and siblings are their beneficiaries. If one of their siblings had children and then died, those children are also beneficiaries.
 
-  If the decedent has no siblings and their parents are dead, their grandparents or their grandparents' descendants are their beneficiaries.
+  When a decedent has no siblings and their parents are dead, their grandparents or their grandparents' descendants are their beneficiaries.
 ---
 id: user is fiduciary 
 question: |
@@ -1119,9 +1138,9 @@ question: |
 subquestion: |
   Since the will did not say who will get the residue, ${decedent.name_full()}'s closest family members will inherit it.
 
-  There are laws that say who counts as someone's closest family members and what share of the residue they get. Even though there is a will, the residue will be inherited intestate. Intestacy is how an estate is given away when the will does not say who should get it. For more information about intestate inheritance, read ILAO's [**wills for estate planning FAQ**](https://www.illinoislegalaid.org/legal-information/wills-estate-planning#whathappensifidiewithoutawill).
+  There are laws that say who counts as someone's closest family members and what share of the residue they get. Even though there is a will, the residue will be inherited under the same rules an estate without a will is inherited. For more information about this kind of inheritance, read ILAO's [**wills for estate planning FAQ**](https://www.illinoislegalaid.org/legal-information/wills-estate-planning#whathappensifidiewithoutawill).
 
-  Intestacy can be complicated. This program will explain how it works, but you may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
+  Inheritance and residue can be complicated. This program will explain how it works, but you may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
 
   % if decedent.was_married and dependents.there_are_any: 
   Since ${decedent.name_full()} was married, their spouse and children will inherit the residue. If ${decedent.name_full()} has any children who died after having children of their own, those grandchildren will inherit that share.
@@ -1169,6 +1188,7 @@ fields:
     datatype: integer
   - no label: x.residue_denominator
     datatype: integer
+
 ---
 #template: residue_intestacy_help
 #subject: |
@@ -1219,11 +1239,11 @@ continue button field: who_is_intestate
 question: |
   About who will inherit
 subquestion: |
-  If ${decedent.name_full()} has any children, they get equal shares of the estate. If any of those children died after having their own children, those grandchildren split their parent's share.
+  ${decedent.name_full()}'s children, if they had any, get equal shares of the estate. If any of those children died after having their own children, those grandchildren split their parent's share.
 
-  If ${decedent.name_full()} has no children or other descendants, their parents, siblings, and half-siblings get equal shares of the estate. If one of ${decedent.name_full()}'s parents have died, the other parent gets a double share. If any of the siblings died after having children, those children split their parent's share.
+  ${decedent.name_full()}'s parents, siblings, and half-siblings get equal shares of the estate if ${decedent.name_full()} had no children or other descendants. In the event that one of ${decedent.name_full()}'s parents has died, the other parent gets a double share. If any of the siblings died after having children, those children split their parent's share.
 
-  If ${decedent.name_full()} does not have siblings or any living parents, their grandparents inherit their estate. If any of ${decedent.name_full()}'s grandparents have died, their descendants split their share.
+  ${decedent.name_full()}'s grandparents inherit their estate if ${decedent.name_full()} did not have siblings or any living parents. If any of ${decedent.name_full()}'s grandparents have died, their descendants split their share.
 ---
 code: |
   intestate_heirs.there_are_any = True
@@ -1253,7 +1273,7 @@ sets:
 id: intestate heirs name
 question: |
   % if have_a_will and not decedent.was_married and not dependents.there_are_any:
-   What is the name of ${decedent.name_full()}'s ${ordinal(i)} close family member?
+  What is the name of ${decedent.name_full()}'s ${ordinal(i)} close family member?
   % elif have_a_will and not dependents.there_are_any:
   What is the name of ${decedent.name_full()}'s ${ordinal(i)} child or descendant?
   % elif have_a_will:
@@ -1261,18 +1281,18 @@ question: |
   % else:
   What is the name of ${decedent.name_full()}'s ${ordinal(i)} heir?
   % endif
-subquestion: |
+subquestion: |  
   % if i == 0 and (have_a_will or user_is_ben):
   If this is you, please fill this out with your name. There will be more questions about you at the end of the interview.
   % endif
 
    % if not have_a_will:
-  A person will inherit something from the estate is called an "heir." Because ${decedent.name_full()} did not have a will, their closest family members will be their heirs under intestacy.
+  A person who will inherit something from the estate is called an "heir." Because ${decedent.name_full()} did not have a will, their closest family members will be their heirs.
   
   % endif
   ${collapse_template(intestacy_help)}
 
-  Intestacy can be complicated. You may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
+  Inheritance of estates without wills can be complicated. You may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
 fields:
   - code: |
       intestate_heirs[i].name_fields()
@@ -1427,9 +1447,19 @@ code: |
     residue_or_estate = "estate"
     the_residue_or_their_estate = "their estate"
 ---
+sets: table_image.initialized
+code: |
+  table_for_display = pdf_concatenate(docx_concatenate(example_table['preview'], filename="example_table.docx"))
+
+  table_image.initialize(filename='intestacy_table.png')
+
+  source_path = table_for_display.page_path(1, 'page')
+  table_image.copy_into(source_path)
+  table_image.commit()
+---
 template: intestacy_help
 subject: |
-  **How to calculate intestate shares**
+  **About who inherits from an estate with no will**
 content: |
   % if decedent.was_married and (dependents.there_are_any or intestate_heirs.there_are_any):
    ${decedent.name_full()}'s spouse should get 1/2 of ${the_residue_or_their_estate}. ${decedent.name_full()}'s children should each get an equal share of the rest of the ${residue_or_estate}. 
@@ -1445,17 +1475,7 @@ content: |
   
   If any of ${decedent.name_full()}'s children died after having their own children, those grandchildren will split their parent's share. For example, if ${decedent.name_full()} has two living children and a dead child who had two children, the living children should each get 1/3 of the ${residue_or_estate} and the dead child's children should each get 1/6th of the ${residue_or_estate}.
   % else:
-  If ${decedent.name_full()} has any children, they should each get an equal share of the ${residue_or_estate}. For example, if ${decedent.name_full()} has three children, they should each get 1/3 of the ${residue_or_estate}. 
-  
-  If any of ${decedent.name_full()}'s children died after having their own children, those grandchildren will split their parent's share. For example, if ${decedent.name_full()} has two living children and a dead child who had two children, the living children should each get 1/3 of the ${residue_or_estate} and the dead child's children should each get 1/6th of the ${residue_or_estate}.
-
-  If ${decedent.name_full()} has no children, their parents, siblings, and half-siblings will get equal shares of the ${residue_or_estate}. If one of ${decedent.name_full()}'s parents have died, the other parent will get a double share. For example, if ${decedent.name_full()} has one living parent and one sibling, their parent should inherit 2/3 of the ${residue_or_estate} and their sibling should inherit 1/3. 
-  
-  If any of the siblings died after having children, those children will get their parent's share. For example, if ${decedent.name_full()} has one living parent, one living sibling, and a dead sibling who had two children, their parent should get 1/2 of the ${residue_or_estate}, the living sibling should get 1/4 of the ${residue_or_estate}, and the dead sibling's children should each get 1/8th of the ${residue_or_estate}.
-
-  If ${decedent.name_full()} does not have siblings or any living parents, their grandparents will inherit ${the_residue_or_their_estate}.  For example, if ${decedent.name_full()}'s maternal grandmother and both their paternal grandparents are alive, their maternal grandmother should get 1/2 of the ${residue_or_estate} and their paternal grandparents should each get 1/4 of the ${residue_or_estate}. 
-  
-  If ${decedent.name_full()}'s grandparents have died, their descendants will inherit their share. For example, if ${decedent.name_full()}'s maternal grandmother is alive and their paternal grandparents died with two living children, their maternal grandmother should get 1/2 of the ${residue_or_estate} and their paternal grandparent's children should each get 1/4 of the ${residue_or_estate}.
+  ${table_image.show(width='100%')}
   % endif
 ---
 id: intestate heir share
@@ -1595,7 +1615,7 @@ code: |
 ---
 id: any trust property
 question: |
-  Did ${decedent.name_full()} hold any money or property for a trust that cannot be identified or traced?
+  Did ${decedent.name_full()} hold any money or property in a trust that cannot be identified or traced?
 subquestion: |
   If ${decedent.name_full()} was a **{trustee}** and their estate still has money or property belonging to someone else, click **Yes**.
 fields:
@@ -1642,7 +1662,7 @@ id: united states debts
 question: |
   Does ${decedent.name_full()} have any unpaid debts owed to the United States?
 subquestion: |
-  If ${decedent.name_full()} has unpaid income taxes owed to the IRS or unpaid federal student loans, click **Yes**.
+  If ${decedent.name_full()} has unpaid income taxes owed to the IRS or an unpaid fine from a federal court, click **Yes**.
 
   If ${decedent.name_full()} has unpaid taxes owed to the state of Illinois, you do not have to list that here. You will be asked about those debts on another screen. 
 fields:
@@ -1651,7 +1671,7 @@ fields:
 ---
 id: employee debts
 question: |
-  Does ${decedent.name_full()} owe $800 or less to an employee for end-of-life services?
+  Does ${decedent.name_full()} owe an employee for end-of-life services?
 subquestion: |  
   End-of-life services means any services rendered in the last 5 months of ${decedent.name_full()}'s life or any expenses from attending ${decedent.name_full()}'s last illness.
 fields:
@@ -1734,7 +1754,7 @@ id: us debt there is another
 question: |
   Does ${decedent.name_full()} have another unpaid debt owed to the United States?
 subquestion: |
-  So far you have told us about the expenses owed to ${fix_punctuation(us_debts.full_names())}
+  So far you have told us about the debts owed to ${fix_punctuation(us_debts.full_names())}
 fields:
   - no label: us_debts.there_is_another
     datatype: yesnoradio
@@ -1745,7 +1765,8 @@ question: |
 fields:
   - Amount owed: employee_debts[i].amount
     datatype: currency
-    max: 800
+  - note: |
+      Only $800 of this debt will count as a class 4 debt that has to be paid before some other types of debt. If the employee is owed more than $800, the rest of the debt will count as a class 7 debt. Class 7 debts are the lowest priority debts.
   - Employee name: employee_debts[i].name.first
   - Street address: employee_debts[i].address.address
     address autocomplete: True
@@ -1758,13 +1779,24 @@ fields:
     default: IL
   - ZIP code: employee_debts[i].address.zip
 ---
+code: |
+  def eight_hundred_max(amount):
+    if amount > 800:
+      return 800
+    else:
+      return amount
+---
+code: |
+  def amount_beyond_eight_hundred(amount):
+    return (amount - 800)
+---
 id: employee debt there is another
 question: |
   Does ${decedent.name_full()} have another unpaid debt to an employee for end-of-life services?
 subquestion: |
   End-of-life services means any services rendered in the last 5 months of ${decedent.name_full()}'s life or any expenses from attending ${decedent.name_full()}'s last illness.
 
-  So far you have told us about the expenses owed to ${fix_punctuation(employee_debts.full_names())}
+  So far you have told us about the debts owed to ${fix_punctuation(employee_debts.full_names())}
 fields:
   - no label: employee_debts.there_is_another
     datatype: yesnoradio
@@ -1791,7 +1823,7 @@ id: illinois debt there is another
 question: |
    Does ${decedent.name_full()} have another debt to Illinois or a county, town, city, village, or school district in Illinois?
 subquestion: |
-  So far you have told us about the expenses owed to ${fix_punctuation(illinois_debts.full_names())}
+  So far you have told us about the debts owed to ${fix_punctuation(illinois_debts.full_names())}
 fields:
   - no label: illinois_debts.there_is_another
     datatype: yesnoradio
@@ -1806,7 +1838,7 @@ fields:
     input type: area
   - Claimant name: other_debts[i].name.first
     help: |
-      The **claimant** is the person or company ${decedent.name_full()} owes money to.
+      The **claimant** is the person or company saying ${decedent.name_full()} owes them money.
   - Street address: other_debts[i].address.address
     address autocomplete: True
   - Address line 2: other_debts[i].address.unit
@@ -1982,18 +2014,19 @@ subquestion: |
 ---
 template: class_list
 subject: |
-  **The order claims against the estate should be paid**
+  **The order in which claims against the estate should be paid**
 content: |
   Estates should pay their debts in the following order:  
 
   * Class 1: Funeral and burial expenses
   * Class 2: Surviving spouse and dependent children's awards
   * Class 3: Debts due to the United States
-  * Class 4: Money due employees
+  * Class 4: Up to $800 due employees
   * Class 5: Money or property held in trust
   * Class 6: Debts due to the State of Illinois or others
   * Class 7: All other claims
 ---
+reconsider: True
 code: |
   user_who_choices = []
   if decedent.was_married:
@@ -2027,11 +2060,6 @@ fields:
     choices:
       code: |
         user_who_choices
-validation code: |
-  if users[0].who != "I am someone else.":
-    for person in collected_heirs:
-      if users[0].who == person.name_full():
-        users[0].address = person.address
 ---
 id: user rep who
 question: |
@@ -2080,6 +2108,18 @@ fields:
   - code: |
       users[0].name_fields()
 ---
+reset:
+  - copy_address_to_user
+---
+code: |
+  if (have_a_will or user_is_ben) and users[0].who != "I am someone else.":
+    for person in collected_heirs:
+      if users[0].who == person.name_full():
+        users[0].address = person.address
+  copy_address_to_user = True
+---
+sets:
+  - users[0].address.address
 id: user address
 question: |
   What is your address?
@@ -2125,7 +2165,7 @@ question: |
 subquestion: |
   An agent for service of process is a person who may accept court papers for you if you are sued. The agent must be a resident of Illinois.
 
-  If you click **No**, you will have to receive any service of process yourself. You should only click **No** if you are living in Illinois.
+  If you click **Yes**, court papers will be sent to your agent. If you click **No**, court papers will be sent directly to you.
 fields:
   - no label: name_an_agent
     datatype: yesnoradio
@@ -2145,6 +2185,10 @@ sets:
 id: agent name
 question: |
   What is the name of the agent for service of process?
+subquestion: |
+  % if users[0].address.state != "IL":
+  An agent for service of process is a person who accepts court papers for you if you are sued. You must have an agent for service of process because you do not live in Illinois.
+  % endif
 fields:
   - code: |
        agent.name_fields()
@@ -2264,6 +2308,23 @@ code: |
         collected_heirs.append(heir)
   make_collected_heirs = True
 ---
+reconsider: True
+code: |
+  include_other_debts = False
+  other_and_extra_employee_debts.clear()
+  if employee_debts.there_are_any:
+    for debt in employee_debts:
+      if debt.amount > 800:
+        include_other_debts = True
+        debt.description = "Money due employee"
+        debt.flag = "employee"
+        other_and_extra_employee_debts.append(debt)
+  if other_debts.there_are_any:
+    include_other_debts = True
+    for debt in other_debts:
+      debt.flag = "other"
+      other_and_extra_employee_debts.append(debt)
+---
 generic object: ALDocumentBundle
 template: x.send_email_template
 subject: |
@@ -2281,6 +2342,7 @@ objects:
 objects:
   - instructions: ALDocument.using(title="Instructions", filename="instructions.pdf", has_addendum=False)
   - affidavit: ALDocument.using(title="Small estate affidavit", filename="small_estate_affidavit.pdf", has_addendum=False)
+  - example_table: ALDocument.using(title="example_table", filename="example_table.pdf", has_addendum=False)
 ---
 code: |
   instructions.enabled = True
@@ -2298,6 +2360,12 @@ attachment:
     filename: affidavit
     docx template file: small_estate_affidavit.docx
 ---
+attachment:
+  - name: example_table
+    variable name: example_table[i]
+    filename: example_table
+    docx template file: intestate_example_table.docx
+---
 id: review screen
 event: review_answers
 question: |
@@ -2314,7 +2382,13 @@ review:
     button: |
       **Has the will been filed with the court clerk?**
 
-      ${ word(yesno(will_filed)) if defined('will_filed') else '' }
+      % if will_filed and prompt_file:
+      Yes, and it was filed within 30 days of the decedent's death.
+      % elif will_filed:
+      Yes, but it was not filed within 30 days of the decedent's death.
+      % else:
+      No
+      % endif
     show if: have_a_will
   - Edit: user_is_executor
     button: |
@@ -2346,9 +2420,9 @@ review:
       ${ showifdef('death_date') }
   - Edit: decedent.address.address
     button: |
-      **Where was ${decedent.name_full()} living when they died?**
+      **What was ${decedent.name_full()}'s last permanent address?**
 
-      ${decedent.address.on_one_line(bare=True)}
+      ${decedent.address.line_one(bare=True)}, ${decedent.address.city}, ${end_in_county(decedent.address.county)}, ${decedent.address.state} ${decedent.address.zip}
   - note: |
       <h4>Heirs</h4>
   - Edit: decedent.was_married
@@ -2543,7 +2617,7 @@ review:
       % endfor
   - Edit: employee_debts.there_are_any
     button: |
-      **Does ${decedent.name_full()} owe $800 or less to an employee for end-of-life services?**
+      **Does ${decedent.name_full()} owe an employee for end-of-life services?**
 
       ${ word(yesno(employee_debts.there_are_any)) if defined('employee_debts.there_are_any') else '' }
   - Edit: employee_debts.revisit
@@ -2973,7 +3047,13 @@ review:
     button: |
       **Has the will been filed with the court clerk?**
 
-      ${ word(yesno(will_filed)) if defined('will_filed') else '' }
+      % if will_filed and prompt_file:
+      Yes, and it was filed within 30 days of the decedent's death.
+      % elif will_filed:
+      Yes, but it was not filed within 30 days of the decedent's death.
+      % else:
+      No
+      % endif
     show if: have_a_will
   - Edit: user_is_executor
     button: |
@@ -3005,9 +3085,9 @@ review:
       ${ showifdef('death_date') }
   - Edit: decedent.address.address
     button: |
-      **Where was ${decedent.name_full()} living when they died?**
+      **What was ${decedent.name_full()}'s last permanent address?**
 
-      ${decedent.address.on_one_line(bare=True)}
+      ${decedent.address.line_one(bare=True)}, ${decedent.address.city}, ${end_in_county(decedent.address.county)}, ${decedent.address.state} ${decedent.address.zip}
 ---
 id: heirs review screen
 section: Heirs
@@ -3223,7 +3303,7 @@ review:
       % endfor
   - Edit: employee_debts.there_are_any
     button: |
-      **Does ${decedent.name_full()} owe $800 or less to an employee for end-of-life services?**
+      **Does ${decedent.name_full()} owe an employee for end-of-life services?**
 
       ${ word(yesno(employee_debts.there_are_any)) if defined('employee_debts.there_are_any') else '' }
   - Edit: employee_debts.revisit
