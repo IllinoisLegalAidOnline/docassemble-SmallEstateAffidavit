@@ -33,9 +33,10 @@ objects:
   - illinois_debts: ALPeopleList.using(complete_attribute='complete')
   - other_debts: ALPeopleList.using(complete_attribute='complete')
   - other_and_extra_employee_debts: ALPeopleList.using(there_are_any=False, complete_attribute='complete', there_is_another=False)
+  - intestate_guide: DAList.using(there_are_any=True)
 ---
-objects:
-  - table_image: DAFile
+#objects:
+#  - table_image: DAFile
 ---
 code: |
   al_form_type = 'starts_case'
@@ -105,6 +106,7 @@ code: |
       dependents_passed_kickout
     dependents.gather()
   set_progress(40)
+  build_intestate_guide()
   if have_a_will:
     if (decedent.was_married or dependents.there_are_any) and not spouse_decedent_in_will:
       not_in_will_kickout
@@ -327,13 +329,22 @@ code: |
         if person.flag == "residue":
           return str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
         elif person.residue_check:
-          return currency(person.amount_received) + ", and " + str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
+          if person.residue_numerator == 1 and person.residue_denominator == 1:
+            return currency(person.amount_received) + ", and all of the residue"
+          else:
+            return currency(person.amount_received) + ", and " + str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
         else: 
           return currency(person.amount_received)
       elif person.flag == "spouse" or person.flag == "dependent":
-        return currency(person.amount_received) + ", and " + str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
+        if person.residue_numerator == 1 and person.residue_denominator == 1:
+            return currency(person.amount_received) + ", and all of the residue"
+        else:
+          return currency(person.amount_received) + ", and " + str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
       elif person.flag == "intestate":
-        return str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
+        if person.residue_numerator == 1 and person.residue_denominator == 1:
+            return "All of the residue"
+        else:
+          return str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
       else:
         return currency(person.amount_received)
     else:
@@ -1176,7 +1187,7 @@ id: x residue share
 question: |
   What is ${x.name_full()}'s share of the residue?
 subquestion: |
-  You should enter their share as a fraction. For example, if they will get 50% of the residue, you should enter "1 / 2" below. All the fractions you enter should add up to 1.
+  You should enter their share as a fraction. For example, if they will get 50% of the residue, you should enter "1 / 2" below. All the fractions you enter should add up to 1. If ${x.name_full()} will get all of the residue, you should enter "1 / 1" below.
 
   % if not residue_mentioned:
   ${collapse_template(intestacy_help)}
@@ -1186,9 +1197,14 @@ subquestion: |
 fields:
   - no label: x.residue_numerator
     datatype: integer
+  #  js hide if: |
+  #    val('x.all_residue') == true
   - no label: x.residue_denominator
     datatype: integer
-
+  #  js hide if: |
+  #    val('x.all_residue') == true
+  #- ${x.name_full()} will get all of the residue.: x.all_residue
+  #  datatype: yesnowide
 ---
 #template: residue_intestacy_help
 #subject: |
@@ -1428,7 +1444,7 @@ question: |
 subquestion: |
   ${collapse_template(intestacy_help)}
 
-  You should enter their share as a fraction. For example, if they will get 50% of the estate, you should enter "1 / 2" below.
+  You should enter their share as a fraction. For example, if they will get 50% of the estate, you should enter "1 / 2" below. If they will get all of the estate, you should enter "1 / 1" below.
   
   Share: [FIELD dependents[i].numerator] / [FIELD dependents[i].denominator]
 fields:
@@ -1446,16 +1462,18 @@ code: |
   else:
     residue_or_estate = "estate"
     the_residue_or_their_estate = "their estate"
+--- 
+#sets: table_image.initialized
+#code: |
+#  table_for_display = pdf_concatenate(docx_concatenate(example_table['preview'], filename="example_table.docx"))
+#
+#  table_image.initialize(filename='intestacy_table.png')
+#
+#  source_path = table_for_display.page_path(1, 'page')
+#  table_image.copy_into(source_path)
+#  table_image.commit()
 ---
-sets: table_image.initialized
-code: |
-  table_for_display = pdf_concatenate(docx_concatenate(example_table['preview'], filename="example_table.docx"))
-
-  table_image.initialize(filename='intestacy_table.png')
-
-  source_path = table_for_display.page_path(1, 'page')
-  table_image.copy_into(source_path)
-  table_image.commit()
+#${table_image.show(width='100%')}
 ---
 template: intestacy_help
 subject: |
@@ -1475,8 +1493,41 @@ content: |
   
   If any of ${decedent.name_full()}'s children died after having their own children, those grandchildren will split their parent's share. For example, if ${decedent.name_full()} has two living children and a dead child who had two children, the living children should each get 1/3 of the ${residue_or_estate} and the dead child's children should each get 1/6th of the ${residue_or_estate}.
   % else:
-  ${table_image.show(width='100%')}
+  ${intestate_table}
   % endif
+---
+table: intestate_table
+rows: intestate_guide
+columns:
+  - Situation: row_item['situation']
+  - Who inherits: row_item['who']
+  - How it's divided: row_item['divided']
+  - Example: row_item['example']
+---
+code: |
+  def build_intestate_guide():
+    intestate_guide.auto_gather = False
+    intestate_guide.clear()
+    intestate_guide.append({
+      "situation": decedent.name_full() + " has children",
+      "who": "Children (and descendants of deceased children)",
+      "divided": "Each living child gets an equal share of the " + residue_or_estate + ". If a child dies after having their own children, those grandchildren split that child’s share.",
+      "example": "If " + decedent.name_full() + " has three children, they should each get 1/3 of the " + residue_or_estate + ". If " + decedent.name_full() + " has two living children and a dead child who had two children, the living children should each get 1/3 of the " + residue_or_estate + " and the dead child's children should each get 1/6th of the " + residue_or_estate + "."
+    })
+    intestate_guide.append({
+      "situation": "No children",
+      "who": "Parents, siblings, and half-siblings (and descendants of deceased siblings or half-siblings)",
+      "divided": "Each parent and sibling gets an equal share, **except** a surviving parent takes a double share if the other parent has died. If any of the siblings died after having children, those children split their parent’s share.",
+      "example": "If " + decedent.name_full() + " has one living parent, one living sibling, and a dead sibling who had two children, their parent should get 1/2 of the " + residue_or_estate + ", the living sibling should get 1/4 of the " + residue_or_estate + ", and the dead sibling's children should each get 1/8th of the " + residue_or_estate + "."
+    })
+    intestate_guide.append({
+      "situation": "No children, no siblings, and no living parents",
+      "who": "Grandparents (and their descendants)",
+      "divided": "Each grandparent gets an equal share, **except** a surviving grandparent gets a double share if the other grandparent on their side of the family has died. If both grandparents on a side of the family have died, their descendants will split their share.",
+      "example": "If " + decedent.name_full() + "'s maternal grandmother and both their paternal grandparents are alive, their maternal grandmother should get 1/2 of the " + residue_or_estate + " and their paternal grandparents should each get 1/4 of the " + residue_or_estate + ". If " + decedent.name_full() + "'s maternal grandmother is alive and their paternal grandparents died with two living children, their maternal grandmother should get 1/2 of the " + residue_or_estate + " and their paternal grandparent's children should each get 1/4 of the " + residue_or_estate + "."
+    })
+    intestate_guide.gathered = True
+    return
 ---
 id: intestate heir share
 question: |
@@ -1484,7 +1535,7 @@ question: |
 subquestion: |
   ${collapse_template(intestacy_help)}
 
-  You should enter their share as a fraction. For example, if they will get 50% of the estate, you should enter "1 / 2" below.
+  You should enter their share as a fraction. For example, if they will get 50% of the estate, you should enter "1 / 2" below. If they will get all of the estate, you should enter "1 / 1" below.
 
   Share: [FIELD intestate_heirs[i].numerator] / [FIELD intestate_heirs[i].denominator]
 fields:
@@ -2342,7 +2393,7 @@ objects:
 objects:
   - instructions: ALDocument.using(title="Instructions", filename="instructions.pdf", has_addendum=False)
   - affidavit: ALDocument.using(title="Small estate affidavit", filename="small_estate_affidavit.pdf", has_addendum=False)
-  - example_table: ALDocument.using(title="example_table", filename="example_table.pdf", has_addendum=False)
+  #- example_table: ALDocument.using(title="example_table", filename="example_table.pdf", has_addendum=False)
 ---
 code: |
   instructions.enabled = True
@@ -2360,11 +2411,11 @@ attachment:
     filename: affidavit
     docx template file: small_estate_affidavit.docx
 ---
-attachment:
-  - name: example_table
-    variable name: example_table[i]
-    filename: example_table
-    docx template file: intestate_example_table.docx
+#attachment:
+#  - name: example_table
+#    variable name: example_table[i]
+#    filename: example_table
+#    docx template file: intestate_example_table.docx
 ---
 id: review screen
 event: review_answers
