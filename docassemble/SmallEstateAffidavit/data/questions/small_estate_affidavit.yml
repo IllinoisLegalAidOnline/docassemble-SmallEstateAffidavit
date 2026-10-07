@@ -121,15 +121,15 @@ code: |
     if residue_mentioned:
       if decedent.was_married:
         if spouse.residue_check:
-          spouse.residue_numerator
+          spouse.all_residue
       if dependents.there_are_any:
         for person in dependents:
           if person.residue_check:
-            person.residue_numerator
+            person.all_residue
       for person in heirs:
         if person.flag != "intestate" and person.flag != "residue":
           if person.residue_check:
-            person.residue_numerator
+            person.all_residue
       if residue_heirs.there_are_any:
         residue_heirs.gather()
     else:
@@ -142,9 +142,9 @@ code: |
         spouse_residue_intestate_code
       if dependents.there_are_any:
         for person in dependents:
-          person.residue_numerator
+          person.all_residue
       for person in intestate_heirs:
-        person.residue_numerator
+        person.all_residue
   else:
     about_intestacy
     if not decedent.was_married and not dependents.there_are_any:
@@ -158,7 +158,7 @@ code: |
     if dependents.there_are_any:
       if decedent.was_married or intestate_heirs.there_are_any or dependents.number_gathered() > 1:
         for dependent in dependents:
-          dependent.numerator
+          dependent.all_estate
     
     if decedent.was_married and not dependents.there_are_any and not intestate_heirs.there_are_any:
       spouse_gets_all
@@ -168,16 +168,16 @@ code: |
       if dependents.there_are_any:
         if decedent.was_married or intestate_heirs.there_are_any or dependents.number_gathered() > 1:
           for dependent in dependents:
-            dependent.numerator
+            dependent.all_estate
       if intestate_heirs.there_are_any:
         if decedent.was_married or dependents.there_are_any or intestate_heirs.number_gathered() > 1:
           for heir in intestate_heirs:
-            heir.denominator 
+            heir.all_estate 
   
     if (not decedent.was_married and not dependents.there_are_any) or intestate_heirs.there_are_any:
       if decedent.was_married or dependents.there_are_any or intestate_heirs.number_gathered() > 1:
         for person in intestate_heirs:
-          person.numerator
+          person.all_estate
   set_progress(60)
   
   nav.set_section('section_assets')
@@ -268,7 +268,7 @@ code: |
   residue_heirs[i].flag = "residue"
   residue_heirs[i].relationship
   residue_heirs[i].address.address
-  residue_heirs[i].residue_numerator
+  residue_heirs[i].all_residue
   residue_heirs[i].complete = True
 ---
 #intestate heirs gather loop
@@ -329,27 +329,34 @@ code: |
         if person.flag == "residue":
           return str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
         elif person.residue_check:
-          if person.residue_numerator == 1 and person.residue_denominator == 1:
-            return currency(person.amount_received) + ", and all of the residue"
+          if person.all_residue:
+            return currency(person.amount_received) + ", and 100% of the residue"
           else:
             return currency(person.amount_received) + ", and " + str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
         else: 
           return currency(person.amount_received)
       elif person.flag == "spouse" or person.flag == "dependent":
-        if person.residue_numerator == 1 and person.residue_denominator == 1:
-            return currency(person.amount_received) + ", and all of the residue"
+        if person.all_residue:
+            return currency(person.amount_received) + ", and 100% of the residue"
         else:
           return currency(person.amount_received) + ", and " + str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
       elif person.flag == "intestate":
-        if person.residue_numerator == 1 and person.residue_denominator == 1:
-            return "All of the residue"
+        if person.all_residue:
+            return "100% of the residue"
         else:
           return str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
       else:
         return currency(person.amount_received)
     else:
       if decedent.was_married or (dependents.there_are_any and intestate_heirs.there_are_any) or (dependents.there_are_any and dependents.number_gathered() > 1) or (intestate_heirs.there_are_any and intestate_heirs.number_gathered() > 1):
-        return str(person.numerator) + "/" + str(person.denominator) + " of the estate"
+        if person.flag == "spouse" and person.numerator == 1 and person.denominator == 1:
+          return "100% of the estate"
+        elif person.flag == "spouse":
+          return str(person.numerator) + "/" + str(person.denominator) + " of the estate"
+        elif person.all_estate:
+          return "100% of the estate"
+        else:
+          return str(person.numerator) + "/" + str(person.denominator) + " of the estate"
       else:
         return "100% of the estate"
 ---
@@ -867,7 +874,7 @@ question: |
 subquestion: |
   You can use this program if ${decedent.name_full()}'s dependents are alive.
 
-  Earlier, you said that ${decedent.name_full()} had dependents when they died. If ${decedent.name_full()}'s dependents all died before ${decedent.name_full()} died, you should click the Heirs or Edit answers button to change your answer to say that ${decedent.name_full()} did not have dependents.
+  Earlier, you said that ${decedent.name_full()} had dependents when they died. If any of ${decedent.name_full()}'s dependents died before ${decedent.name_full()} died, you should click the Heirs or Edit answers button to change your answer to say that ${decedent.name_full()} did not have dependents.
 fields:
   - no label: have_dependents_passed
     datatype: yesnoradio
@@ -1193,18 +1200,32 @@ subquestion: |
   ${collapse_template(intestacy_help)}
   
   % endif
-  Share: [FIELD x.residue_numerator] / [FIELD x.residue_denominator]
 fields:
-  - no label: x.residue_numerator
+  - "Share:": x.residue_numerator
     datatype: integer
-  #  js hide if: |
-  #    val('x.all_residue') == true
+    grid: 2
+    #label above field: True
+    js hide if: |
+      val('x.all_residue') == true
+  - note: "/"
+    grid: 1
+    js hide if: |
+      val('x.all_residue') == true
   - no label: x.residue_denominator
     datatype: integer
+    grid: 2
+    js hide if: |
+      val('x.all_residue') == true
+  - ${x.name_full()} will get all of the residue.: x.all_residue
+    datatype: yesnowide
+  #- no label: x.residue_numerator
+  #  datatype: integer
+  ##  js hide if: |
+  ##    val('x.all_residue') == true
+  #- no label: x.residue_denominator
+  #  datatype: integer
   #  js hide if: |
   #    val('x.all_residue') == true
-  #- ${x.name_full()} will get all of the residue.: x.all_residue
-  #  datatype: yesnowide
 ---
 #template: residue_intestacy_help
 #subject: |
@@ -1444,14 +1465,28 @@ question: |
 subquestion: |
   ${collapse_template(intestacy_help)}
 
-  You should enter their share as a fraction. For example, if they will get 50% of the estate, you should enter "1 / 2" below. If they will get all of the estate, you should enter "1 / 1" below.
-  
-  Share: [FIELD dependents[i].numerator] / [FIELD dependents[i].denominator]
+  You should enter their share as a fraction. For example, if they will get 50% of the estate, you should enter "1 / 2" below.
 fields:
-  - no label: dependents[i].numerator
+  - "Share:": dependents[i].numerator
+    grid: 2
     datatype: integer
+    js hide if: |
+      val('dependents[i].all_estate') == true
+  - note: "/"
+    grid: 1
+    js hide if: |
+      val('dependents[i].all_estate') == true
   - no label: dependents[i].denominator
+    grid: 2
     datatype: integer
+    js hide if: |
+      val('dependents[i].all_estate') == true
+  - ${dependents[i].name_full()} will get all of the estate.: dependents[i].all_estate
+    datatype: yesnowide
+    hide if: decedent.was_married
+validation code: |
+  if decedent.was_married:
+    dependents[i].all_estate = False
 ---
 depends on:
   - have_a_will
@@ -1532,18 +1567,33 @@ code: |
 id: intestate heir share
 question: |
   What is ${intestate_heirs[i].name_full()}'s share of the estate?
-subquestion: |
+subquestion: |  
   ${collapse_template(intestacy_help)}
 
-  You should enter their share as a fraction. For example, if they will get 50% of the estate, you should enter "1 / 2" below. If they will get all of the estate, you should enter "1 / 1" below.
-
-  Share: [FIELD intestate_heirs[i].numerator] / [FIELD intestate_heirs[i].denominator]
+  You should enter their share as a fraction. For example, if they will get 50% of the estate, you should enter "1 / 2" below.
 fields:
-  - no label: intestate_heirs[i].numerator
+  - "Share:": intestate_heirs[i].numerator
+    grid: 2
     datatype: integer
-    max: 2
+    js hide if: |
+      val('intestate_heirs[i].all_estate') == true
+  - note: "/"
+    grid: 1
+    js hide if: |
+      val('intestate_heirs[i].all_estate') == true
   - no label: intestate_heirs[i].denominator
+    grid: 2
     datatype: integer
+    js hide if: |
+      val('intestate_heirs[i].all_estate') == true
+  - ${intestate_heirs[i].name_full()} will get all of the estate.: intestate_heirs[i].all_estate
+    datatype: yesnowide
+    hide if: 
+      code: |
+        decedent.was_married or dependents.there_are_any
+validation code: |
+  if decedent.was_married or dependents.there_are_any:
+    intestate_heirs[i].all_estate = False
 ---
 id: asset info
 question: |
@@ -2810,7 +2860,7 @@ subquestion: |-
 ---
 id: revisit us_debts
 continue button field: us_debts.revisit
-question: Edit your answers about Us Debts
+question: Edit your answers about US Debts
 subquestion: |-
   ${us_debts.table}
 
@@ -2886,15 +2936,23 @@ review:
       **Will ${x.name_full()} inherit some of the residue?**
       ${word(yesno(x.residue_check))}
     show if: have_a_will and residue_mentioned
-  - Edit: x.residue_numerator
+  - Edit: x.all_residue
     button: |
       **What fraction of the residue will go to ${x.name_full()}?**
+      % if x.all_residue:
+      All of it
+      % else:
       ${x.residue_numerator}/${x.residue_denominator}
+      % endif
     show if: have_a_will and (not residue_mentioned or x.residue_check)
-  - Edit: x.numerator
+  - Edit: x.all_estate
     button: |
       **What fraction of the estate will go to ${x.name_full()}?**
+      % if x.all_estate:
+      100% of the estate
+      % else:
       ${x.numerator}/${x.denominator}
+      % endif
     show if: not have_a_will
   - Edit: x.award
     button: |
@@ -2944,11 +3002,15 @@ review:
       **Will ${x.name_full()} inherit some of the residue?**
       ${word(yesno(x.residue_check))}
     show if: have_a_will and residue_mentioned
-  - Edit: x.residue_numerator
+  - Edit: x.all_residue
     button: |
       **What fraction of the residue will go to ${x.name_full()}?**
+      % if x.all_residue:
+      All of it
+      % else:
       ${x.residue_numerator}/${x.residue_denominator}
-    show if: have_a_will and (not residue_mentioned or x.residue_check)
+      % endif
+    show if: have_a_will and residue_mentioned and x.residue_check
 ---
 table: residue_heirs.table
 rows: residue_heirs
@@ -2972,10 +3034,18 @@ review:
     button: |
       **${x.name_full()}'s address:**
       ${x.address.on_one_line(bare=True)} 
-  - Edit: x.residue_numerator
+  - Edit: x.birthdate
+    button: |
+      **${x.name_full()}'s birthdate:**
+      ${x.birthdate}
+  - Edit: x.all_residue
     button: |
       **What fraction of the residue will go to ${x.name_full()}?**
+      % if x.all_residue:
+      All of it
+      % else:
       ${x.residue_numerator}/${x.residue_denominator}
+      % endif
 ---
 table: intestate_heirs.table
 rows: intestate_heirs
@@ -3007,15 +3077,23 @@ review:
     button: |
       **${x.name_full()}'s address:**
       ${x.address.on_one_line(bare=True)} 
-  - Edit: x.numerator
+  - Edit: x.all_estate
     button: |
       **What fraction of the estate will go to ${x.name_full()}?**
+      % if x.all_estate:
+      100% of the estate
+      % else:
       ${x.numerator}/${x.denominator}
+      % endif
     show if: not have_a_will
-  - Edit: x.residue_numerator
+  - Edit: x.all_residue
     button: |
       **What fraction of the residue will go to ${x.name_full()}?**
+      % if x.all_residue:
+      All of it
+      % else:
       ${x.residue_numerator}/${x.residue_denominator}
+      % endif
     show if: have_a_will and not residue_mentioned
 ---
 table: assets.table
