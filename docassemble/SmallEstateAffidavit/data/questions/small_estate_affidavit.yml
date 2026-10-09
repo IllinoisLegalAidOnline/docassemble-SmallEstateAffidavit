@@ -121,7 +121,7 @@ code: |
     if residue_mentioned:
       if decedent.was_married:
         if spouse.residue_check:
-          spouse.all_residue
+          spouse_residue_intestate_code
       if dependents.there_are_any:
         for person in dependents:
           if person.residue_check:
@@ -158,7 +158,7 @@ code: |
     if dependents.there_are_any:
       if decedent.was_married or intestate_heirs.there_are_any or dependents.number_gathered() > 1:
         for dependent in dependents:
-          dependent.all_estate
+          dependent.get_share
     
     if decedent.was_married and not dependents.there_are_any and not intestate_heirs.there_are_any:
       spouse_gets_all
@@ -168,16 +168,16 @@ code: |
       if dependents.there_are_any:
         if decedent.was_married or intestate_heirs.there_are_any or dependents.number_gathered() > 1:
           for dependent in dependents:
-            dependent.all_estate
+            dependent.get_share
       if intestate_heirs.there_are_any:
         if decedent.was_married or dependents.there_are_any or intestate_heirs.number_gathered() > 1:
           for heir in intestate_heirs:
-            heir.all_estate 
+            heir.get_share 
   
     if (not decedent.was_married and not dependents.there_are_any) or intestate_heirs.there_are_any:
       if decedent.was_married or dependents.there_are_any or intestate_heirs.number_gathered() > 1:
         for person in intestate_heirs:
-          person.all_estate
+          person.get_share
   set_progress(60)
   
   nav.set_section('section_assets')
@@ -335,9 +335,14 @@ code: |
             return currency(person.amount_received) + ", and " + str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
         else: 
           return currency(person.amount_received)
-      elif person.flag == "spouse" or person.flag == "dependent":
+      elif person.flag == "dependent":
         if person.all_residue:
             return currency(person.amount_received) + ", and 100% of the residue"
+        else:
+          return currency(person.amount_received) + ", and " + str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
+      elif person.flag == "spouse":
+        if person.residue_numerator == 1 and person.residue_denominator == 1:
+          return currency(person.amount_received) + ", and 100% of the residue"
         else:
           return currency(person.amount_received) + ", and " + str(person.residue_numerator) + "/" + str(person.residue_denominator) + " of the residue"
       elif person.flag == "intestate":
@@ -408,9 +413,9 @@ question: |
 subquestion: |
   Welcome to Illinois Legal Aid Online's **Small estate affidavit** Easy Form.
 
-  This program will help you make a small estate affidavit. You can use it if you want to transfer someone's personal property without going to court after they die.
+  This program will help you make a small estate affidavit. You can use it if you want to transfer someone's personal property without going to probate court after they die.
 
-  To learn more, read ILAO's guide on [**Transferring property with a small estate affidavit basics**](https://www.illinoislegalaid.org/node/31841).
+  To learn more, read ILAO's article on [**Transferring property with a small estate affidavit**](https://www.illinoislegalaid.org/node/31841).
 field: sees_nav_bar
 ---
 id: instructions
@@ -519,9 +524,9 @@ continue button field: warning_page
 question: |
   Note about small estate affidavits
 subquestion: |  
-  You should only use a small estate affidavit if you have the legal right to do so, and you should make sure that all information in the small estate affidavit is correct.
+  Only use a small estate affidavit if you have the legal right to do so, and make sure that all information in the small estate affidavit is correct.
 
-  <div class="alert alert-info ilao-info" role="alert">
+  <div class="alert alert-warning ilao-info" role="alert">
     <h6 class="alert-heading">Warning</h6>
     <p>If you use a small estate affidavit incorrectly, you may be personally liable for any losses you cause. This means you could be sued if you forget to include an heir, if you don't list all the estate's property in the affidavit, or if you don't pay one of the estate's debts.</p>
   </div>
@@ -626,14 +631,19 @@ question: |
 subquestion: |
   The will has to be filed with the court clerk after the decedent's death. If the will has not been filed yet, you can contact the court clerk to learn how to file it. Court clerks usually allow you to file the will in person or by mail.
   
-  ${collapse_template(included_statement)}
+  If you click **Yes**, the small estate affidavit will include this statement:
 
-   This paragraph says the will has been filed correctly and that you are including a copy of it. By including the paragraph, you are saying you think this is the decedent's correct, legal, and last will. The "legatees" are the heirs of the estate. 
+  "The decedent left a will, which has been filed with the clerk of an appropriate court. A certified copy of the will on file is attached. To the best of my knowledge and belief the will on file is the decedent's last will and was signed by the decedent and the attesting witnesses as required by law and would be admittable to probate. The names and places of residence of the legatees and the portion of the estate, if any, to which each legatee is entitled are as follows . . ."
+
+   This paragraph says the will has been filed correctly. By including the paragraph, you are saying you think this is the decedent's correct, legal, and last will. The "legatees" are the heirs of the estate. 
 
   If you are not sure if the information contained in the above paragraph is true, you may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
 fields:
   - no label: will_filed
-    datatype: yesnoradio
+    input type: radio
+    choices:
+      - "Yes, the will was filed with the court clerk and it was the decedent's last will.": True
+      - No, the will has not been filed.: False
   - Was the will filed within 30 days of the decedent's death?: prompt_file
     datatype: yesnoradio
     show if: will_filed
@@ -741,7 +751,7 @@ id: decedent was married
 question: |
   Was ${decedent.name_full()} married when they died?
 subquestion: |
-  If ${decedent.name_full()} was divorced or their spouse had died before  ${decedent.name_full()} died, you can click **No**.
+  If ${decedent.name_full()} was divorced or their spouse had died before ${decedent.name_full()} died, you can click **No**.
 
   **Note:** If ${decedent.name_full()} and their spouse were **separated but not divorced** when ${decedent.name_full()} died, click **Yes**.
 fields:
@@ -1135,7 +1145,7 @@ id: residue mentioned
 question: |
   Does the will say who will get the estate's residue?
 subquestion: |
-  **Residue** is anything left in the estate after debts are paid and inheritances are given away.
+  **Residue** is anything left in the estate after debts are paid and inheritances are given away. There is not always residue left over.
 fields:
   - no label: residue_mentioned
     datatype: yesnoradio
@@ -1144,7 +1154,7 @@ id: any residue heirs
 question: |
   Will anyone else get some of the estate's residue?
 subquestion: |
-  **Residue** is anything left in the estate after debts are paid and inheritances are given away.
+  **Residue** is anything left in the estate after debts are paid and inheritances are given away. There is not always residue left over.
 fields:
   - no label: residue_heirs.there_are_any
     datatype: yesnoradio
@@ -1154,7 +1164,7 @@ continue button field: residue_intestate
 question: |
   Giving residue to family
 subquestion: |
-  Since the will did not say who will get the residue, ${decedent.name_full()}'s closest family members will inherit it.
+  Since the will did not say who will get the residue, ${decedent.name_full()}'s closest family members will inherit it if there is any.
 
   There are laws that say who counts as someone's closest family members and what share of the residue they get. Even though there is a will, the residue will be inherited under the same rules an estate without a will is inherited. For more information about this kind of inheritance, read ILAO's [**wills for estate planning FAQ**](https://www.illinoislegalaid.org/legal-information/wills-estate-planning#whathappensifidiewithoutawill).
 
@@ -1194,38 +1204,32 @@ id: x residue share
 question: |
   What is ${x.name_full()}'s share of the residue?
 subquestion: |
-  You should enter their share as a fraction. For example, if they will get 50% of the residue, you should enter "1 / 2" below. All the fractions you enter should add up to 1. If ${x.name_full()} will get all of the residue, you should enter "1 / 1" below.
+  You should enter their share as a fraction. For example, if they will get 50% of the residue, you should enter "1 / 2" below. All the fractions you enter should add up to 1.
 
   % if not residue_mentioned:
   ${collapse_template(intestacy_help)}
   
   % endif
 fields:
+  - ${x.name_full()} will get all of the residue.: x.all_residue
+    datatype: yesnowide
   - "Share:": x.residue_numerator
     datatype: integer
     grid: 2
-    #label above field: True
-    js hide if: |
-      val('x.all_residue') == true
+    disable if:
+      variable: x.all_residue
+      is: True
   - note: "/"
     grid: 1
-    js hide if: |
-      val('x.all_residue') == true
+    disable if:
+      variable: x.all_residue
+      is: True
   - no label: x.residue_denominator
     datatype: integer
     grid: 2
-    js hide if: |
-      val('x.all_residue') == true
-  - ${x.name_full()} will get all of the residue.: x.all_residue
-    datatype: yesnowide
-  #- no label: x.residue_numerator
-  #  datatype: integer
-  ##  js hide if: |
-  ##    val('x.all_residue') == true
-  #- no label: x.residue_denominator
-  #  datatype: integer
-  #  js hide if: |
-  #    val('x.all_residue') == true
+    disable if:
+      variable: x.all_residue
+      is: True
 ---
 #template: residue_intestacy_help
 #subject: |
@@ -1278,7 +1282,7 @@ question: |
 subquestion: |
   ${decedent.name_full()}'s children, if they had any, get equal shares of the estate. If any of those children died after having their own children, those grandchildren split their parent's share.
 
-  ${decedent.name_full()}'s parents, siblings, and half-siblings get equal shares of the estate if ${decedent.name_full()} had no children or other descendants. In the event that one of ${decedent.name_full()}'s parents has died, the other parent gets a double share. If any of the siblings died after having children, those children split their parent's share.
+  If ${decedent.name_full()} had no children or other descendants, ${decedent.name_full()}'s parents, siblings, and half-siblings get equal shares of the estate. In the event that one of ${decedent.name_full()}'s parents has died, the other parent gets a double share. If any of the siblings died after having children, those children split their parent's share.
 
   ${decedent.name_full()}'s grandparents inherit their estate if ${decedent.name_full()} did not have siblings or any living parents. If any of ${decedent.name_full()}'s grandparents have died, their descendants split their share.
 ---
@@ -1400,6 +1404,7 @@ fields:
     datatype: yesnoradio
 ---
 depends on:
+  - decedent.was_married
   - dependents.there_are_any
   - intestate_heirs.there_are_any
 code: |
@@ -1414,6 +1419,7 @@ code: |
   spouse_intestate_code = True
 ---
 depends on:
+  - decedent.was_married
   - dependents.there_are_any
   - intestate_heirs.there_are_any
 code: |
@@ -1455,37 +1461,67 @@ question: |
 subquestion: |
   ${spouse.name_full()} will inherit half of the residue. ${decedent.name_full()}'s children and any other descendants will split the other half.
 ---
+continue button field: dependents[i].get_share
 id: dependent intestate share
 question: |
-  % if have_a_will:
-  What fraction of the residue will go to ${dependents[i].name_full()}?
-  % else:
   What fraction of the estate will go to ${dependents[i].name_full()}?
-  % endif
 subquestion: |
   ${collapse_template(intestacy_help)}
 
   You should enter their share as a fraction. For example, if they will get 50% of the estate, you should enter "1 / 2" below.
+  % if decedent.was_married or defined('dependents[0].all_estate') or (intestate_heirs.there_are_any and defined('intestate_heirs[0].all_estate')):
+  
+  So far you have told us:
+  
+  % if decedent.was_married:
+  * ${spouse.name_full()} will get ${spouse.numerator}/${spouse.denominator} of the estate.
+  % endif
+  % for person in dependents:
+  % if defined('person.all_estate'):
+  % if person.all_estate:
+  * ${person.name_full()} will get all of the estate.
+  % else:
+  * ${person.name_full()} will get ${person.numerator}/${person.denominator} of the estate.
+  % endif
+  % endif
+  % endfor
+  % if defined('intestate_heirs.there_are_any') and intestate_heirs.there_are_any:
+  % for person in intestate_heirs:
+  % if defined('person.all_estate'):
+  % if person.all_estate:
+  * ${person.name_full()} will get all of the estate.
+  % else:
+  * ${person.name_full()} will get ${person.numerator}/${person.denominator} of the estate.
+  % endif
+  % endif
+  % endfor
+  % endif
+  % endif
 fields:
+  - ${dependents[i].name_full()} will get all of the estate.: dependents[i].all_estate
+    datatype: yesnowide
+    hide if: 
+      code: |
+        decedent.was_married or intestate_heirs.there_are_any
   - "Share:": dependents[i].numerator
     grid: 2
     datatype: integer
-    js hide if: |
-      val('dependents[i].all_estate') == true
+    disable if:
+      variable: dependents[i].all_estate
+      is: True
   - note: "/"
     grid: 1
-    js hide if: |
-      val('dependents[i].all_estate') == true
+    disable if:
+      variable: dependents[i].all_estate
+      is: True
   - no label: dependents[i].denominator
     grid: 2
     datatype: integer
-    js hide if: |
-      val('dependents[i].all_estate') == true
-  - ${dependents[i].name_full()} will get all of the estate.: dependents[i].all_estate
-    datatype: yesnowide
-    hide if: decedent.was_married
+    disable if:
+      variable: dependents[i].all_estate
+      is: True
 validation code: |
-  if decedent.was_married:
+  if decedent.was_married or intestate_heirs.there_are_any:
     dependents[i].all_estate = False
 ---
 depends on:
@@ -1497,18 +1533,6 @@ code: |
   else:
     residue_or_estate = "estate"
     the_residue_or_their_estate = "their estate"
---- 
-#sets: table_image.initialized
-#code: |
-#  table_for_display = pdf_concatenate(docx_concatenate(example_table['preview'], filename="example_table.docx"))
-#
-#  table_image.initialize(filename='intestacy_table.png')
-#
-#  source_path = table_for_display.page_path(1, 'page')
-#  table_image.copy_into(source_path)
-#  table_image.commit()
----
-#${table_image.show(width='100%')}
 ---
 template: intestacy_help
 subject: |
@@ -1552,7 +1576,7 @@ code: |
     intestate_guide.append({
       "situation": "No children",
       "who": "Parents, siblings, and half-siblings (and descendants of deceased siblings or half-siblings)",
-      "divided": "Each parent and sibling gets an equal share, **except** a surviving parent takes a double share if the other parent has died. If any of the siblings died after having children, those children split their parent’s share.",
+      "divided": "Each parent, sibling, and half-sibling gets an equal share, **except** a surviving parent takes a double share if the other parent has died. If any of the siblings or half-siblings died after having children, those children split their parent’s share.",
       "example": "If " + decedent.name_full() + " has one living parent, one living sibling, and a dead sibling who had two children, their parent should get 1/2 of the " + residue_or_estate + ", the living sibling should get 1/4 of the " + residue_or_estate + ", and the dead sibling's children should each get 1/8th of the " + residue_or_estate + "."
     })
     intestate_guide.append({
@@ -1564,6 +1588,7 @@ code: |
     intestate_guide.gathered = True
     return
 ---
+continue button field: intestate_heirs[i].get_share
 id: intestate heir share
 question: |
   What is ${intestate_heirs[i].name_full()}'s share of the estate?
@@ -1571,26 +1596,55 @@ subquestion: |
   ${collapse_template(intestacy_help)}
 
   You should enter their share as a fraction. For example, if they will get 50% of the estate, you should enter "1 / 2" below.
+  % if decedent.was_married or defined('intestate_heirs[0].all_estate') or (dependents.there_are_any and defined('dependents[0].all_estate')):
+
+  So far you have told us:
+  
+  % if decedent.was_married:
+  * ${spouse.name_full()} will get ${spouse.numerator}/${spouse.denominator} of the estate.
+  % endif
+  % if dependents.there_are_any:
+  % for person in dependents:
+  % if person.all_estate:
+  * ${person.name_full()} will get all of the estate.
+  % else:
+  * ${person.name_full()} will get ${person.numerator}/${person.denominator} of the estate.
+  % endif
+  % endfor
+  % endif
+  % for person in intestate_heirs:
+  % if defined('person.all_estate'):
+  % if person.all_estate:
+  * ${person.name_full()} will get all of the estate.
+  % else:
+  * ${person.name_full()} will get ${person.numerator}/${person.denominator} of the estate.
+  % endif
+  % endif
+  % endfor
+  % endif
 fields:
-  - "Share:": intestate_heirs[i].numerator
-    grid: 2
-    datatype: integer
-    js hide if: |
-      val('intestate_heirs[i].all_estate') == true
-  - note: "/"
-    grid: 1
-    js hide if: |
-      val('intestate_heirs[i].all_estate') == true
-  - no label: intestate_heirs[i].denominator
-    grid: 2
-    datatype: integer
-    js hide if: |
-      val('intestate_heirs[i].all_estate') == true
   - ${intestate_heirs[i].name_full()} will get all of the estate.: intestate_heirs[i].all_estate
     datatype: yesnowide
     hide if: 
       code: |
-        decedent.was_married or dependents.there_are_any
+        decedent.was_married or dependents.there_are_any 
+  - "Share:": intestate_heirs[i].numerator
+    grid: 2
+    datatype: integer
+    disable if:
+      variable: intestate_heirs[i].all_estate
+      is: True
+  - note: "/"
+    grid: 1
+    disable if:
+      variable: intestate_heirs[i].all_estate
+      is: True
+  - no label: intestate_heirs[i].denominator
+    grid: 2
+    datatype: integer
+    disable if:
+      variable: intestate_heirs[i].all_estate
+      is: True
 validation code: |
   if decedent.was_married or dependents.there_are_any:
     intestate_heirs[i].all_estate = False
@@ -2264,7 +2318,7 @@ id: name an agent
 question: |
   Do you want to name an agent for service of process?
 subquestion: |
-  An agent for service of process is a person who may accept court papers for you if you are sued. The agent must be a resident of Illinois.
+  An agent for service of process is a person who may accept court papers for you if you are sued over ${decedent.name_full()}'s estate. The agent must be a resident of Illinois.
 
   If you click **Yes**, court papers will be sent to your agent. If you click **No**, court papers will be sent directly to you.
 fields:
@@ -2288,11 +2342,29 @@ question: |
   What is the name of the agent for service of process?
 subquestion: |
   % if users[0].address.state != "IL":
-  An agent for service of process is a person who accepts court papers for you if you are sued. You must have an agent for service of process because you do not live in Illinois.
+  An agent for service of process is a person who accepts court papers for you if you are sued over ${decedent.name_full()}'s estate. You must have an agent for service of process because you do not live in Illinois.
   % endif
 fields:
   - code: |
        agent.name_fields()
+---
+id: agent address
+question: |
+  What is ${agent.name_full()}'s address?
+fields:
+  - Street address: agent.address.address
+    address autocomplete: True
+  - Address line 2: agent.address.unit
+    required: False
+  - City: agent.address.city
+  - State: agent.address.state
+    code: |
+      states_list()
+    default: IL
+  - ZIP code: agent.address.zip
+validation code: |
+  if agent.address.state != "IL":
+    validation_error("Your agent for service of process must be in Illinois.", field="agent.address.state")
 ---
 id: agent phone
 question: |
@@ -2686,6 +2758,7 @@ review:
       % for item in funeral_debts:
       - ${ item }
       % endfor
+    show if: funeral_debts.there_are_any
   - Edit: spouse.award
     button: |
       **How much should ${spouse.name_full()} be awarded?**
@@ -2704,6 +2777,7 @@ review:
       % for item in trust_property:
       - ${ item }
       % endfor
+    show if: trust_property.there_are_any
   - Edit: us_debts.there_are_any
     button: |
       **Does ${decedent.name_full()} have any unpaid debts owed to the United States?**
@@ -2716,6 +2790,7 @@ review:
       % for item in us_debts:
       - ${ item }
       % endfor
+    show if: us_debts.there_are_any
   - Edit: employee_debts.there_are_any
     button: |
       **Does ${decedent.name_full()} owe an employee for end-of-life services?**
@@ -2728,6 +2803,7 @@ review:
       % for item in employee_debts:
       - ${ item.name_full() }
       % endfor
+    show if: employee_debts.there_are_any
   - Edit: illinois_debts.there_are_any
     button: |
       **Does ${decedent.name_full()} have any debts to Illinois?**
@@ -2740,6 +2816,7 @@ review:
       % for item in illinois_debts:
       - ${ item }
       % endfor
+    show if: illinois_debts.there_are_any
   - Edit: other_debts.there_are_any
     button: |
       **Are there any other claims against ${decedent.name_full()}'s estate?**
@@ -2752,6 +2829,7 @@ review:
       % for item in other_debts:
       - ${ item }
       % endfor 
+    show if: other_debts.there_are_any
   - note: |
       <h4>About you</h4>
   - Edit: users[0].who
@@ -2945,7 +3023,10 @@ review:
       ${x.residue_numerator}/${x.residue_denominator}
       % endif
     show if: have_a_will and (not residue_mentioned or x.residue_check)
-  - Edit: x.all_estate
+  - label: Edit
+    fields:
+      - recompute:
+        - x.get_share
     button: |
       **What fraction of the estate will go to ${x.name_full()}?**
       % if x.all_estate:
@@ -2958,6 +3039,7 @@ review:
     button: |
       **How much should ${x.name_full()} be awarded?**
       ${currency(x.award)}
+    show if: (not decedent.was_married) or (spouse.lives_with_decedent and not x.lives_with_decedent) or ( not x.lives_with_decedent and not x.lives_with_spouse)
 ---
 table: heirs.table
 rows: heirs
@@ -3077,7 +3159,10 @@ review:
     button: |
       **${x.name_full()}'s address:**
       ${x.address.on_one_line(bare=True)} 
-  - Edit: x.all_estate
+  - label: Edit
+    fields:
+      - recompute:
+        - x.get_share
     button: |
       **What fraction of the estate will go to ${x.name_full()}?**
       % if x.all_estate:
@@ -3400,6 +3485,7 @@ review:
       % for item in funeral_debts:
       - ${ item }
       % endfor
+    show if: funeral_debts.there_are_any
   - Edit: spouse.award
     button: |
       **How much should ${spouse.name_full()} be awarded?**
@@ -3418,6 +3504,7 @@ review:
       % for item in trust_property:
       - ${ item }
       % endfor
+    show if: trust_property.there_are_any
   - Edit: us_debts.there_are_any
     button: |
       **Does ${decedent.name_full()} have any unpaid debts owed to the United States?**
@@ -3430,6 +3517,7 @@ review:
       % for item in us_debts:
       - ${ item }
       % endfor
+    show if: us_debts.there_are_any
   - Edit: employee_debts.there_are_any
     button: |
       **Does ${decedent.name_full()} owe an employee for end-of-life services?**
@@ -3440,8 +3528,9 @@ review:
       **Debts owed to:**
 
       % for item in employee_debts:
-      - ${ item }
+      - ${ item.name_full() }
       % endfor
+    show if: employee_debts.there_are_any
   - Edit: illinois_debts.there_are_any
     button: |
       **Does ${decedent.name_full()} have any debts to Illinois?**
@@ -3454,6 +3543,7 @@ review:
       % for item in illinois_debts:
       - ${ item }
       % endfor
+    show if: illinois_debts.there_are_any
   - Edit: other_debts.there_are_any
     button: |
       **Are there any other claims against ${decedent.name_full()}'s estate?**
@@ -3466,6 +3556,7 @@ review:
       % for item in other_debts:
       - ${ item }
       % endfor 
+    show if: other_debts.there_are_any
 ---
 id: user review screen
 section: About you
