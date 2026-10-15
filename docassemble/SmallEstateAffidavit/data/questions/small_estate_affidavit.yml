@@ -415,7 +415,7 @@ subquestion: |
 
   This program will help you make a small estate affidavit. You can use it if you want to transfer someone's personal property without going to probate court after they die.
 
-  To learn more, read ILAO's article on [**Transferring property with a small estate affidavit**](https://www.illinoislegalaid.org/node/31841).
+  To learn more, see ILAO's article on [**Transferring property with a small estate affidavit**](https://www.illinoislegalaid.org/node/31841).
 field: sees_nav_bar
 ---
 id: instructions
@@ -477,7 +477,7 @@ question: |
 subquestion: |
   To use this program, you must have a connection to the decedent's **{estate}**.
 
-  If the decedent had a will, you can only use this program if you are the will's executor. An executor is the person in charge of giving out the property left in the will. Wills usually name the executor. If the will does not name an executor, a probate court will pick someone to handle the estate. To learn more, read ILAO's [**Probate FAQ**](https://www.illinoislegalaid.org/node/189971).
+  If the decedent had a will, you can only use this program if you are the will's executor. An executor is the person in charge of giving out the property left in the will. Wills usually name the executor. If the will does not name an executor, a probate court will pick someone to handle the estate. To learn more, see ILAO's [**Probate FAQ**](https://www.illinoislegalaid.org/node/189971).
 
   If there is not a will, you must either be a beneficiary of the decedent, a **{representative}** of a beneficiary, or a **{fiduciary}** of the beneficiary. A beneficiary is someone who will inherit from the decedent. When there is no will, beneficiaries are usually the decedent's spouse, children, or other closest relatives. If any of the beneficiaries died after the decedent died, you can not use this program and may need a lawyer to help you with the estate. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
 terms:
@@ -513,9 +513,9 @@ continue button field: whats_next
 question: |
   After you finish this program
 subquestion: |
-  Once you download your small estate affidavit, you will need to attach the decedent's death certificate and sign the document in front of a notary. To learn more about notaries, read ILAO's article, [**What is a notary?**](https://www.illinoislegalaid.org/node/176196)
+  Once you download your small estate affidavit, you will need to attach the decedent's death certificate and sign the document in front of a notary. To learn more about notaries, see ILAO's article, [**What is a notary?**](https://www.illinoislegalaid.org/node/176196)
 
-  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has the decedent's property. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, read ILAO's guide to [**using a small estate affidavit**](https://www.illinoislegalaid.org/node/31836).
+  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has the decedent's property. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, see ILAO's guide to [**using a small estate affidavit**](https://www.illinoislegalaid.org/node/31836).
 
   **Note:** For cars and some other vehicles, you may need to use the [**Illinois Secretary of State's small estate affidavit form**](https://www.ilsos.gov/content/dam/publications/pdf_publications/rtopr31.pdf).
 ---
@@ -526,8 +526,8 @@ question: |
 subquestion: |  
   Only use a small estate affidavit if you have the legal right to do so, and make sure that all information in the small estate affidavit is correct.
 
-  <div class="alert alert-warning ilao-info" role="alert">
-    <h6 class="alert-heading">Warning</h6>
+  <div class="alert alert-info ilao-info" role="alert">
+    <h6 class="alert-heading">About liability and getting sued</h6>
     <p>If you use a small estate affidavit incorrectly, you may be personally liable for any losses you cause. This means you could be sued if you forget to include an heir, if you don't list all the estate's property in the affidavit, or if you don't pay one of the estate's debts.</p>
   </div>
 ---
@@ -576,9 +576,9 @@ question: |
 subquestion: |
   You cannot use this program for an estate that includes real estate that has not already been transferred.
 
-  If the decedent made a Transfer on Death Instrument (TODI), their real estate may be transferred without going to court. To learn more, read ILAO's [**Transfer on Death Instrument FAQ**](https://www.illinoislegalaid.org/node/185961).
+  If the decedent made a Transfer on Death Instrument (TODI), their real estate may be transferred without going to court. To learn more, see ILAO's [**Transfer on Death Instrument FAQ**](https://www.illinoislegalaid.org/node/185961).
 
-  If the decedent shared the real estate with someone else, they may have been joint tenants. If they had a joint tenancy, the other joint tenants automatically inherited the decedent's share of the property and you can still use this program. To learn more, read ILAO's [**sharing property ownership FAQ**](https://www.illinoislegalaid.org/node/187846).
+  If the decedent shared the real estate with someone else, they may have been joint tenants. If they had a joint tenancy, the other joint tenants automatically inherited the decedent's share of the property and you can still use this program. To learn more, see ILAO's [**sharing property ownership FAQ**](https://www.illinoislegalaid.org/node/187846).
 
   Click **Back** if you made a mistake, or you can talk with a lawyer to discuss your options. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area.
 buttons:
@@ -635,24 +635,24 @@ subquestion: |
 
   "The decedent left a will, which has been filed with the clerk of an appropriate court. A certified copy of the will on file is attached. To the best of my knowledge and belief the will on file is the decedent's last will and was signed by the decedent and the attesting witnesses as required by law and would be admittable to probate. The names and places of residence of the legatees and the portion of the estate, if any, to which each legatee is entitled are as follows . . ."
 
-   This paragraph says the will has been filed correctly. By including the paragraph, you are saying you think this is the decedent's correct, legal, and last will. The "legatees" are the heirs of the estate. 
-
-  If you are not sure if the information contained in the above paragraph is true, you may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
+  ${collapse_template(paragraph_meaning)}   
 fields:
   - no label: will_filed
     input type: radio
     choices:
-      - "Yes, the will was filed with the court clerk and it was the decedent's last will.": True
+      - "Yes, the will was filed with the court clerk, and it was the decedent's last will.": True
       - No, the will has not been filed.: False
   - Was the will filed within 30 days of the decedent's death?: prompt_file
     datatype: yesnoradio
     show if: will_filed
 ---
-template: included_statement
+template: paragraph_meaning
 subject: |
-  **If you click Yes, the small estate affidavit will include this statement:**
+  **What this paragraph means**
 content: |
-  "The decedent left a will, which has been filed with the clerk of an appropriate court. A certified copy of the will on file is attached. To the best of my knowledge and belief the will on file is the decedent's last will and was signed by the decedent and the attesting witnesses as required by law and would be admittable to probate. The names and places of residence of the legatees and the portion of the estate, if any, to which each legatee is entitled are as follows . . ."
+  This paragraph says the will has been filed correctly. By including the paragraph, you are saying you think this is the decedent's correct, legal, and last will. The "legatees" are the heirs of the estate. 
+
+  If you are not sure if the information contained in the above paragraph is true, you may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
 ---
 id: not filed kickout
 event: not_filed_kickout
@@ -1145,7 +1145,7 @@ id: residue mentioned
 question: |
   Does the will say who will get the estate's residue?
 subquestion: |
-  **Residue** is anything left in the estate after debts are paid and inheritances are given away. There is not always residue left over.
+  **Residue** is anything left in the estate after debts are paid and inheritances are given away. There is not always a residue.
 fields:
   - no label: residue_mentioned
     datatype: yesnoradio
@@ -1154,7 +1154,7 @@ id: any residue heirs
 question: |
   Will anyone else get some of the estate's residue?
 subquestion: |
-  **Residue** is anything left in the estate after debts are paid and inheritances are given away. There is not always residue left over.
+  **Residue** is anything left in the estate after debts are paid and inheritances are given away. There is not always a residue.
 fields:
   - no label: residue_heirs.there_are_any
     datatype: yesnoradio
@@ -1166,7 +1166,7 @@ question: |
 subquestion: |
   Since the will did not say who will get the residue, ${decedent.name_full()}'s closest family members will inherit it if there is any.
 
-  There are laws that say who counts as someone's closest family members and what share of the residue they get. Even though there is a will, the residue will be inherited under the same rules an estate without a will is inherited. For more information about this kind of inheritance, read ILAO's [**wills for estate planning FAQ**](https://www.illinoislegalaid.org/legal-information/wills-estate-planning#whathappensifidiewithoutawill).
+  There are laws that say who counts as someone's closest family members and what share of the residue they get. Even though there is a will, the residue will be inherited under the same rules an estate without a will is inherited. For more information about this kind of inheritance, see ILAO's [**wills for estate planning FAQ**](https://www.illinoislegalaid.org/legal-information/wills-estate-planning#whathappensifidiewithoutawill).
 
   Inheritance and residue can be complicated. This program will explain how it works, but you may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
 
@@ -2391,9 +2391,9 @@ continue button field: next_steps
 question: |
   After you finish this program
 subquestion: |
-  Once you download your small estate affidavit, you will need to attach ${decedent.name_full()}'s death certificate and sign the document in front of a notary. To learn more about notaries, read ILAO's article, [**What is a notary?**](https://www.illinoislegalaid.org/node/176196)
+  Once you download your small estate affidavit, you will need to attach ${decedent.name_full()}'s death certificate and sign the document in front of a notary. To learn more about notaries, see ILAO's article, [**What is a notary?**](https://www.illinoislegalaid.org/node/176196)
 
-  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has ${decedent.name_full()}'s property. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, read ILAO's guide to [**using a small estate affidavit**](https://www.illinoislegalaid.org/node/31836).
+  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has ${decedent.name_full()}'s property. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, see ILAO's guide to [**using a small estate affidavit**](https://www.illinoislegalaid.org/node/31836).
 
   % if any_vehicle(assets):
   Since ${decedent.name_full()}'s estate includes a motor vehicle, you may also need to use the [**Illinois Secretary of State's small estate affidavit form**](https://www.ilsos.gov/content/dam/publications/pdf_publications/rtopr31.pdf).
