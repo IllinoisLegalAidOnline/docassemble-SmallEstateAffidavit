@@ -35,9 +35,6 @@ objects:
   - other_and_extra_employee_debts: ALPeopleList.using(there_are_any=False, complete_attribute='complete', there_is_another=False)
   - intestate_guide: DAList.using(there_are_any=True)
 ---
-#objects:
-#  - table_image: DAFile
----
 code: |
   al_form_type = 'starts_case'
   ilao_easy_form_title = "Small estate affidavit"
@@ -413,8 +410,8 @@ question: |
 subquestion: |
   Welcome to Illinois Legal Aid Online's **Small estate affidavit** Easy Form.
 
-  This program will help you make a small estate affidavit. You can use it if you want to transfer someone's personal property without going to probate court after they die.
-
+  This program will help you make a small estate affidavit. You can use it if you want to transfer someone's personal property after they die without going to probate court. This program can only be used for an estate that is no more than $150,000, not including motor vehicles. You cannot use it if the estate has any real property.
+  
   To learn more, see ILAO's article on [**Transferring property with a small estate affidavit**](https://www.illinoislegalaid.org/node/31841).
 field: sees_nav_bar
 ---
@@ -479,7 +476,7 @@ subquestion: |
 
   If the decedent had a will, you can only use this program if you are the will's executor. An executor is the person in charge of giving out the property left in the will. Wills usually name the executor. If the will does not name an executor, a probate court will pick someone to handle the estate. To learn more, see ILAO's [**Probate FAQ**](https://www.illinoislegalaid.org/node/189971).
 
-  If there is not a will, you must either be a beneficiary of the decedent, a **{representative}** of a beneficiary, or a **{fiduciary}** of the beneficiary. A beneficiary is someone who will inherit from the decedent. When there is no will, beneficiaries are usually the decedent's spouse, children, or other closest relatives. If any of the beneficiaries died after the decedent died, you can not use this program and may need a lawyer to help you with the estate. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
+  If there is not a will, you must either be a beneficiary of the decedent, a **{representative}** of a beneficiary, or a **{fiduciary}** of a beneficiary. A beneficiary is someone who will inherit from the decedent. When there is no will, beneficiaries are usually the decedent's spouse, children, or other closest relatives. If any of the beneficiaries died after the decedent died, you can not use this program and may need a lawyer to help you with the estate. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
 terms:
   - representative: |
       A **representative** is a person who is legally appointed to act for someone else.
@@ -495,7 +492,7 @@ question: |
 subquestion: |
   When someone dies, their property needs to be given to their heirs. However, their property is usually not all in one place: it is in bank accounts, their home, safety deposit boxes, or other places. Getting the decedent's property to their heirs can be complicated, and sometimes people have to go to probate court to sort out the estate. 
 
-  A small estate affidavit is a legal document that lets you manage an estate without going to probate court. It will list the property in the estate and say how it should be distributed. An executor or a beneficiary can use a small estate affidavit to tell banks, corporations, or anyone else with the decedent's property who should get the property.
+  A small estate affidavit is a legal document that lets you manage an estate without going to probate court. It lists the property in the estate and says how it should be distributed. An executor or a beneficiary can use a small estate affidavit to tell banks, corporations, or anyone else with the decedent's property who should get the property.
 ---
 id: how affidavits work
 continue button field: how_work
@@ -515,7 +512,7 @@ question: |
 subquestion: |
   Once you download your small estate affidavit, you will need to attach the decedent's death certificate and sign the document in front of a notary. To learn more about notaries, see ILAO's article, [**What is a notary?**](https://www.illinoislegalaid.org/node/176196)
 
-  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has the decedent's property. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, see ILAO's guide to [**using a small estate affidavit**](https://www.illinoislegalaid.org/node/31836).
+  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has the decedent's property. You may have to show them an ID to prove you are in charge of the estate. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, see ILAO's guide to [**using a small estate affidavit**](https://www.illinoislegalaid.org/node/31836).
 
   **Note:** For cars and some other vehicles, you may need to use the [**Illinois Secretary of State's small estate affidavit form**](https://www.ilsos.gov/content/dam/publications/pdf_publications/rtopr31.pdf).
 ---
@@ -528,7 +525,7 @@ subquestion: |
 
   <div class="alert alert-info ilao-info" role="alert">
     <h6 class="alert-heading">About liability and getting sued</h6>
-    <p>If you use a small estate affidavit incorrectly, you may be personally liable for any losses you cause. This means you could be sued if you forget to include an heir, if you don't list all the estate's property in the affidavit, or if you don't pay one of the estate's debts.</p>
+    <p>If you use a small estate affidavit incorrectly, you may be personally liable for any losses you cause. This means you could be sued if you forget to include an heir, if you don't list all the estate's property in the affidavit, or if you try not to pay one of the estate's debts.</p>
   </div>
 ---
 id: any real estate
@@ -604,9 +601,20 @@ question: |
   What is the name of the person who died?
 subquestion: |
   This person is called the deceased or the decedent.
+
+  If they didn't have a first name and a last name, you can enter their name in the field labeled **First** and leave the other fields blank.
 fields:
-  - code: |
-     decedent.name_fields()
+  - First: decedent.name.first
+  - Middle: decedent.name.middle
+    required: False
+  - Last: decedent.name.last
+    required: False
+  - Suffix: decedent.name.suffix
+    help: |
+      Some names have a suffix after the last name, such as "Senior," "III," or "Jr." If their name does not have a suffix, you can leave this blank.
+    code: |
+      name_suffix()
+    required: False
 ---
 id: decedent death date
 question: |
@@ -704,7 +712,7 @@ question: |
 subquestion: |
   A beneficiary is someone who gets property or money from someone when they die.
 
-  Since there is not a will, the decedent's beneficiaries are their **closest family members**.
+  Since there is not a will, the decedent's beneficiaries are their **legally closest family members**.
 
   ${collapse_template(family_bens_help)}
 
@@ -715,7 +723,7 @@ fields:
 ---
 template: family_bens_help
 subject: |
-  **About which family members are closest**
+  **About which family members are legally closest**
 content: |
   A decedent's closest family members will be their beneficiaries. If a decedent had a spouse or children, they are the beneficiaries. When a decedent's child dies before the decedent after having children of their own, those grandchildren are also beneficiaries.
 
@@ -764,12 +772,23 @@ id: spouse name
 question: |
   What is the name of ${decedent.name_full()}'s spouse?
 subquestion: |
+  If they don't have a first name and a last name, you can enter their name in the field labeled **First** and leave the other fields blank.
+  
   % if have_a_will or user_is_ben:
   If this is you, please fill this out with your name. There will be more questions about you at the end of the interview.
   % endif
 fields:
-  - code: |
-     spouse.name_fields()
+  - First: spouse.name.first
+  - Middle: spouse.name.middle
+    required: False
+  - Last: spouse.name.last
+    required: False
+  - Suffix: spouse.name.suffix
+    help: |
+      Some names have a suffix after the last name, such as "Senior," "III," or "Jr." If their name does not have a suffix, you can leave this blank.
+    code: |
+      name_suffix()
+    required: False
 ---
 id: spouse still alive
 question: |
@@ -907,12 +926,23 @@ id: dependent name
 question: |
   What is the name of ${decedent.name_full()}'s ${ordinal(i)} dependent child?
 subquestion: |
+  If they don't have a first name and a last name, you can enter their name in the field labeled **First** and leave the other fields blank.
+  
   % if i == 0 and ( have_a_will or user_is_ben):
   If this is you, please fill this out with your name. There will be more questions about you at the end of the interview.
   % endif
 fields:
-  code: |
-    dependents[i].name_fields()
+  - First: dependents[i].name.first
+  - Middle: dependents[i].name.middle
+    required: False
+  - Last: dependents[i].name.last
+    required: False
+  - Suffix: dependents[i].name.suffix
+    help: |
+      Some names have a suffix after the last name, such as "Senior," "III," or "Jr." If their name does not have a suffix, you can leave this blank.
+    code: |
+      name_suffix()
+    required: False
 ---
 id: dependent birthdate
 question: |
@@ -1020,12 +1050,23 @@ question: |
 subquestion: |
   When a will says that a person will inherit something from the estate, that person is called an "heir."
 
+  If they don't have a first name and a last name, you can enter their name in the field labeled **First** and leave the other fields blank.
+
   % if i == 0 and ( have_a_will or user_is_ben):
   If this is you, please fill this out with your name. There will be more questions about you at the end of the interview.
   % endif
 fields:
-  code: |
-    heirs[i].name_fields()
+  - First: heirs[i].name.first
+  - Middle: heirs[i].name.middle
+    required: False
+  - Last: heirs[i].name.last
+    required: False
+  - Suffix: heirs[i].name.suffix
+    help: |
+      Some names have a suffix after the last name, such as "Senior," "III," or "Jr." If their name does not have a suffix, you can leave this blank.
+    code: |
+      name_suffix()
+    required: False
 ---
 id: heir relationship
 question: |
@@ -1139,7 +1180,7 @@ template: FMV_help
 subject: |
   **How to determine Fair Market Value (FMV)**
 content: |  
-  Fair Market Value (FMV) is generally defined as a selling price for an item to which an unrelated buyer and seller can agree. You may look at what similar items have sold for recently, getting the item appraised, or by using a third-party website like Zillow.com for real estate or Kelley Blue Book for automobiles.
+  Fair Market Value (FMV) is generally defined as a selling price for an item to which an unrelated buyer and seller can agree. TO figure out the Fair Market Value, you may look at what similar items have sold for recently, get the item appraised, or use a third-party website like Zillow.com for real estate or Kelley Blue Book for automobiles.
 ---
 id: residue mentioned
 question: |
@@ -1184,12 +1225,23 @@ id: residue heir name
 question: |
   Who is the ${ordinal(i)} other person who will inherit some of the residue?
 subquestion: |
+  If they don't have a first name and a last name, you can enter their name in the field labeled **First** and leave the other fields blank.
+  
   % if i == 0 and (have_a_will or user_is_ben):
   If this is you, please fill this out with your name. There will be more questions about you at the end of the interview.
   % endif
 fields:
-  code: |
-    residue_heirs[i].name_fields()
+  - First: residue_heirs[i].name.first
+  - Middle: residue_heirs[i].name.middle
+    required: False
+  - Last: residue_heirs[i].name.last
+    required: False
+  - Suffix: residue_heirs[i].name.suffix
+    help: |
+      Some names have a suffix after the last name, such as "Senior," "III," or "Jr." If their name does not have a suffix, you can leave this blank.
+    code: |
+      name_suffix()
+    required: False
 ---
 generic object: ALIndividual
 id: x residue check
@@ -1323,11 +1375,13 @@ question: |
   What is the name of ${decedent.name_full()}'s ${ordinal(i)} heir?
   % endif
 subquestion: |  
+  If they don't have a first name and a last name, you can enter their name in the field labeled **First** and leave the other fields blank.
+  
   % if i == 0 and (have_a_will or user_is_ben):
   If this is you, please fill this out with your name. There will be more questions about you at the end of the interview.
   % endif
 
-   % if not have_a_will:
+  % if not have_a_will:
   A person who will inherit something from the estate is called an "heir." Because ${decedent.name_full()} did not have a will, their closest family members will be their heirs.
   
   % endif
@@ -1335,8 +1389,17 @@ subquestion: |
 
   Inheritance of estates without wills can be complicated. You may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
 fields:
-  - code: |
-      intestate_heirs[i].name_fields()
+  - First: intestate_heirs[i].name.first
+  - Middle: intestate_heirs[i].name.middle
+    required: False
+  - Last: intestate_heirs[i].name.last
+    required: False
+  - Suffix: intestate_heirs[i].name.suffix
+    help: |
+      Some names have a suffix after the last name, such as "Senior," "III," or "Jr." If their name does not have a suffix, you can leave this blank.
+    code: |
+      name_suffix()
+    required: False
 ---
 id: intestate heir birthdate
 question: |
@@ -1683,6 +1746,8 @@ fields:
     input type: area
     rows: 2
     maxlength: 200
+    help: |
+      If the asset has an account number, include the account number in the description.
   - Value: assets[i].value
     datatype: currency
 ---
@@ -1693,7 +1758,11 @@ subquestion: |
   So far you have told us about:
 
   % for asset in assets:
-  * Their ${asset.type.lower()}, description: ${asset.name}
+  % if asset.type == "CD account":
+  * Their ${asset.type}, worth ${currency(asset.value)}, description: ${asset.name}
+  % else:
+  * Their ${asset.type.lower()}, worth ${currency(asset.value)}, description: ${asset.name}
+  % endif
   % endfor
 fields:
   - no label: assets.there_is_another
@@ -1746,7 +1815,7 @@ id: unclaimed property treasurer
 question: |
   Do you think the Illinois Treasurer's office might have some of ${decedent.name_full()}'s property?
 subquestion: |
-  You can look up whether the Treasurer's office has their property using the [**Treasury's unclaimed property webpage**](https://icash.illinoistreasurer.gov/).
+  You can look up whether the Treasurer's office has their property using the [**Treasurer's unclaimed property webpage**](https://icash.illinoistreasurer.gov/).
 
   If you click **Yes**, the following text will be added to the list of ${decedent.name_full()}'s assets: "Funds and/or assets held with the Illinois Treasurer's Office."
 
@@ -2032,7 +2101,7 @@ subquestion: |
 
   ${spouse.name_full()}'s award must be at least $20,000. Minor children must get an award of at least $10,000. Dependent adult children must get an award of at least $5,000. The awards of children who live with ${spouse.name_full()} will be combined with their award.
   % elif decedent.was_married:
-   As ${decedent.name_full()}'s spouse, ${spouse.name_full()} is entitled to an award from the estate (also called an award). This is different from an inheritance. It is an amount of money intended to support them for nine months.
+   As ${decedent.name_full()}'s spouse, ${spouse.name_full()} is entitled to an award from the estate. This is different from an inheritance. It is an amount of money intended to support them for nine months.
 
   ${collapse_template(award_explainer)}
   % elif dependents.there_are_any:
@@ -2156,7 +2225,7 @@ question: |
   About paying the estate's debts
 subquestion: |
   % if decedent.was_married or dependents.there_are_any:
-  The estate will need to pay any funeral or burial costs first, then give guaranteed awards to ${decedent.name_full()}'s spouse or dependents. The estate will need to pay ${decedent.name_full()}'s other debts before the heirs get their shares of the estate.
+  The estate will need to pay any funeral or burial costs first, then give **{awards}** to ${decedent.name_full()}'s spouse or dependents. The estate will need to pay ${decedent.name_full()}'s other debts before the heirs get their shares of the estate.
   % else:
   You will need to pay the estate's debts before you give the heirs their shares of the estate.
   % endif
@@ -2165,7 +2234,10 @@ subquestion: |
 
   ${collapse_template(class_list)}
 
-  If ${decedent.name_full()}'s estate does not have enough cash to pay its debts, you will have to sell off the estate's other assets to pay the debts. If that still is not enough, some of the estate's creditors may be unpaid and the heirs will get nothing. You may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
+  If ${decedent.name_full()}'s estate does not have enough cash to pay its debts, you will have to sell the estate's other assets, if any, to pay the debts. If that still is not enough, some of the estate's creditors may be unpaid and there will be nothing left for the heirs. You may want to talk with a lawyer. Use **[Get Legal Help](https://www.illinoislegalaid.org/get-legal-help)** to find free or low-cost legal services in your area. 
+terms:
+  - awards: |
+      An **award** is a part of the estate that ${decedent.name_full()}'s spouse or dependent children are entitled to. It is different from an inheritance. An award should only be enough money to support the spouse or children for nine months.
 ---
 template: class_list
 subject: |
@@ -2259,9 +2331,20 @@ sets:
 id: user name
 question: |
   What is your name?
+subquestion: |
+  If you don't have a first name and a last name, you can enter your name in the field labeled **First** and leave the other fields blank.
 fields:
-  - code: |
-      users[0].name_fields()
+  - First: users[0].name.first
+  - Middle: users[0].name.middle
+    required: False
+  - Last: users[0].name.last
+    required: False
+  - Suffix: users[0].name.suffix
+    help: |
+      Some names have a suffix after the last name, such as "Senior," "III," or "Jr." If your name does not have a suffix, you can leave this blank.
+    code: |
+      name_suffix()
+    required: False
 ---
 reset:
   - copy_address_to_user
@@ -2344,9 +2427,20 @@ subquestion: |
   % if users[0].address.state != "IL":
   An agent for service of process is a person who accepts court papers for you if you are sued over ${decedent.name_full()}'s estate. You must have an agent for service of process because you do not live in Illinois.
   % endif
+
+  If they don't have a first name and a last name, you can enter their name in the field labeled **First** and leave the other fields blank.
 fields:
-  - code: |
-       agent.name_fields()
+  - First: agent.name.first
+  - Middle: agent.name.middle
+    required: False
+  - Last: agent.name.last
+    required: False
+  - Suffix: agent.name.suffix
+    help: |
+      Some names have a suffix after the last name, such as "Senior," "III," or "Jr." If their name does not have a suffix, you can leave this blank.
+    code: |
+      name_suffix()
+    required: False
 ---
 id: agent address
 question: |
@@ -2393,7 +2487,7 @@ question: |
 subquestion: |
   Once you download your small estate affidavit, you will need to attach ${decedent.name_full()}'s death certificate and sign the document in front of a notary. To learn more about notaries, see ILAO's article, [**What is a notary?**](https://www.illinoislegalaid.org/node/176196)
 
-  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has ${decedent.name_full()}'s property. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, see ILAO's guide to [**using a small estate affidavit**](https://www.illinoislegalaid.org/node/31836).
+  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has ${decedent.name_full()}'s property. You may have to show them an ID to prove you are in charge of the estate. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, see ILAO's guide to [**using a small estate affidavit**](https://www.illinoislegalaid.org/node/31836).
 
   % if any_vehicle(assets):
   Since ${decedent.name_full()}'s estate includes a motor vehicle, you may also need to use the [**Illinois Secretary of State's small estate affidavit form**](https://www.ilsos.gov/content/dam/publications/pdf_publications/rtopr31.pdf).
@@ -2988,7 +3082,7 @@ review:
       ${x.name_full()}
   - Edit: x.birthdate
     button: |
-      **Birth date:**
+      **Birthdate:**
       ${x.birthdate}
   - Edit: x.lives_with_decedent
     button: |
