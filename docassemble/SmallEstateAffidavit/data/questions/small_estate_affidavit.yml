@@ -410,7 +410,9 @@ question: |
 subquestion: |
   Welcome to Illinois Legal Aid Online's **Small estate affidavit** Easy Form.
 
-  This program will help you make a small estate affidavit. You can use it if you want to transfer someone's personal property after they die without going to probate court. This program can only be used for an estate that is no more than $150,000, not including motor vehicles. You cannot use it if the estate has any real property.
+  This program will help you make a small estate affidavit. You can use it if you want to transfer someone's personal property after they die without going to probate court. 
+  
+  **Note:** The estate must be worth less than $150,000, not including motor vehicles. A small estate affidavit cannot be used to transfer real estate.
   
   To learn more, see ILAO's article on [**Transferring property with a small estate affidavit**](https://www.illinoislegalaid.org/node/31841).
 field: sees_nav_bar
@@ -512,7 +514,7 @@ question: |
 subquestion: |
   Once you download your small estate affidavit, you will need to attach the decedent's death certificate and sign the document in front of a notary. To learn more about notaries, see ILAO's article, [**What is a notary?**](https://www.illinoislegalaid.org/node/176196)
 
-  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has the decedent's property. You may have to show them an ID to prove you are in charge of the estate. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, see ILAO's guide to [**using a small estate affidavit**](https://www.illinoislegalaid.org/node/31836).
+  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has the decedent's property. Be sure to bring your ID. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, see ILAO's guide to [**using a small estate affidavit**](https://www.illinoislegalaid.org/node/31836).
 
   **Note:** For cars and some other vehicles, you may need to use the [**Illinois Secretary of State's small estate affidavit form**](https://www.ilsos.gov/content/dam/publications/pdf_publications/rtopr31.pdf).
 ---
@@ -525,7 +527,12 @@ subquestion: |
 
   <div class="alert alert-info ilao-info" role="alert">
     <h6 class="alert-heading">About liability and getting sued</h6>
-    <p>If you use a small estate affidavit incorrectly, you may be personally liable for any losses you cause. This means you could be sued if you forget to include an heir, if you don't list all the estate's property in the affidavit, or if you try not to pay one of the estate's debts.</p>
+    <p>If you use a small estate affidavit incorrectly, you may be personally liable for any losses you cause. This means you could be sued if:
+    <ul>
+      <li>You forget to include an heir,</li>
+      <li>You don't list all the estate's property in the affidavit, or</li>
+      <li>You try not to pay one of the estate's debts.</li>
+    </ul>
   </div>
 ---
 id: any real estate
@@ -571,7 +578,7 @@ event: real_estate_kickout
 question: |
   Sorry
 subquestion: |
-  You cannot use this program for an estate that includes real estate that has not already been transferred.
+  You cannot use a small estate affidavit to transfer real estate.
 
   If the decedent made a Transfer on Death Instrument (TODI), their real estate may be transferred without going to court. To learn more, see ILAO's [**Transfer on Death Instrument FAQ**](https://www.illinoislegalaid.org/node/185961).
 
@@ -1742,12 +1749,10 @@ fields:
       List the make, model, year, and vehicle identification number of the motor vehicle.
     js show if: |
       val('assets[i].type') === "Motor vehicle"
-  - Description: assets[i].name.text
+  - Description (include account number, if any): assets[i].name.text
     input type: area
     rows: 2
     maxlength: 200
-    help: |
-      If the asset has an account number, include the account number in the description.
   - Value: assets[i].value
     datatype: currency
 ---
@@ -1764,6 +1769,8 @@ subquestion: |
   * Their ${asset.type.lower()}, worth ${currency(asset.value)}, description: ${asset.name}
   % endif
   % endfor
+
+  After you enter all assets, we will calculate the total value of the estate. If the estate is worth more than $150,000, not counting motor vehicles, you will not be able to make a small estate affidavit.
 fields:
   - no label: assets.there_is_another
     datatype: yesnoradio
@@ -2095,17 +2102,17 @@ question: |
   % endif
 subquestion: |
   % if decedent.was_married and dependents.there_are_any:
-  ${decedent.name_full()}'s spouse and dependent children are entitled to a part of the estate (also called an award). This is different from an inheritance. It is an amount of money intended to support the spouse and children for nine months.
+  ${decedent.name_full()}'s spouse and dependent children are entitled to a part of the estate (also called an award). This is different from an inheritance. It is an amount of money meant to support the spouse and children for nine months.
 
   ${collapse_template(award_explainer)}
 
   ${spouse.name_full()}'s award must be at least $20,000. Minor children must get an award of at least $10,000. Dependent adult children must get an award of at least $5,000. The awards of children who live with ${spouse.name_full()} will be combined with their award.
   % elif decedent.was_married:
-   As ${decedent.name_full()}'s spouse, ${spouse.name_full()} is entitled to an award from the estate. This is different from an inheritance. It is an amount of money intended to support them for nine months.
+   As ${decedent.name_full()}'s spouse, ${spouse.name_full()} is entitled to an award from the estate. This is different from an inheritance. It is an amount of money meant to support them for nine months.
 
   ${collapse_template(award_explainer)}
   % elif dependents.there_are_any:
-  ${decedent.name_full()}'s dependent children are entitled to an award from the estate (also called an award). This is different from an inheritance. It is an amount of money intended to support the children for nine months.
+  ${decedent.name_full()}'s dependent children are entitled to an award from the estate (also called an award). This is different from an inheritance. It is an amount of money meant to support the children for nine months.
 
   ${collapse_template(award_explainer)}
 
@@ -2129,6 +2136,13 @@ content: |
   % endif
 
   An **inheritance** is a share of what is left in the estate after its debts are paid.
+---
+code: |
+  def get_relationship(person):
+    if person.relationship == "Other":
+      return person.other_relationship
+    else:
+      return person.relationship
 ---
 code: |
   def spouse_min_award():
@@ -2180,7 +2194,7 @@ subquestion: |
 
   The amount should be enough to support ${spouse.name_full()}, as well as ${spouse_dependents.full_names()}, for nine months. 
   % else:
-  This should be enough to support ${spouse.name_full()} for nine months. It must be at least ${currency(spouse_default_award)}.
+  This is meant to support ${spouse.name_full()} for nine months. It must be at least ${currency(spouse_default_award)}.
   % endif
 
   % if awards_total() > total_with_car:
@@ -2205,9 +2219,9 @@ question: |
   How much should ${dependents[i].name_full()} be awarded?
 subquestion: |
   % if was_a_minor(dependents[i], death_date):
-  This should be enough to support ${dependents[i].name_full()} for nine months. It must be at least ${currency(minor_child_default_award)}.
+  This is meant to support ${dependents[i].name_full()} for nine months. It must be at least ${currency(minor_child_default_award)}.
   % else:
-  This should be enough to support ${dependents[i].name_full()} for nine months. It must be at least ${currency(adult_child_default_award)}.
+  This is meant to support ${dependents[i].name_full()} for nine months. It must be at least ${currency(adult_child_default_award)}.
   % endif
 
   % if awards_total() > total_with_car:
@@ -2487,7 +2501,7 @@ question: |
 subquestion: |
   Once you download your small estate affidavit, you will need to attach ${decedent.name_full()}'s death certificate and sign the document in front of a notary. To learn more about notaries, see ILAO's article, [**What is a notary?**](https://www.illinoislegalaid.org/node/176196)
 
-  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has ${decedent.name_full()}'s property. You may have to show them an ID to prove you are in charge of the estate. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, see ILAO's guide to [**using a small estate affidavit**](https://www.illinoislegalaid.org/node/31836).
+  After the affidavit is signed and notarized, you can show it to a person, bank, or corporation who has ${decedent.name_full()}'s property. Be sure to bring your ID. They will have to give away the property the way the affidavit says. If they do not, you may be able to file a court claim against them to get the property. To learn more, see ILAO's guide to [**using a small estate affidavit**](https://www.illinoislegalaid.org/node/31836).
 
   % if any_vehicle(assets):
   Since ${decedent.name_full()}'s estate includes a motor vehicle, you may also need to use the [**Illinois Secretary of State's small estate affidavit form**](https://www.ilsos.gov/content/dam/publications/pdf_publications/rtopr31.pdf).
@@ -2506,6 +2520,16 @@ subquestion: |
   ###### You do not need to refresh your screen. Hang in there!
   
   [NEWLINE]
+---
+reconsider: True
+code: |
+  any_vehicles = False
+  any_non_vehicles = False
+  for asset in assets:
+    if asset.type == "Motor vehicle":
+      any_vehicles = True
+    else:
+      any_non_vehicles = True
 ---
 id: debug screen
 continue button field: debug_screen
@@ -3545,6 +3569,8 @@ question: |
   Assets
 subquestion: |
   Edit your answers below.
+
+  If you don't see anything below, click **Resume** to enter assets.
 review:
   - Edit: assets.revisit
     button: |-
