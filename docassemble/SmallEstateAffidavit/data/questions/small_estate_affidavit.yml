@@ -237,6 +237,7 @@ code: |
   forms_assembling
   include_other_debts
   make_collected_heirs
+  check_vehicles
   snapshot_forms
   get_docs_screen
 ---
@@ -2530,6 +2531,7 @@ code: |
       any_vehicles = True
     else:
       any_non_vehicles = True
+  check_vehicles = True
 ---
 id: debug screen
 continue button field: debug_screen
